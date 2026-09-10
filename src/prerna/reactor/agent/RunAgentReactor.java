@@ -36,10 +36,12 @@ import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.JSONObject;
 
 import prerna.engine.api.IModelEngine;
 import prerna.engine.impl.model.Room;
 import prerna.engine.impl.model.RoomUtils;
+import prerna.engine.impl.model.inferencetracking.ModelInferenceLogsUtils;
 import prerna.reactor.AbstractReactor;
 import prerna.reactor.agent.exceptions.AgentMaxTurnsException;
 import prerna.reactor.agent.run.AgentRunHandle;
@@ -126,8 +128,7 @@ public class RunAgentReactor extends AbstractReactor {
 		// without any frontend plumbing - the workspaceId is already resolved above.
 		if ((harnessType == null || harnessType.trim().isEmpty()) && explicitWorkspaceId != null) {
 			try {
-				org.json.JSONObject workspaceConfig = prerna.engine.impl.model.inferencetracking.ModelInferenceLogsUtils
-						.getWorkspaceConfigJson(explicitWorkspaceId);
+				JSONObject workspaceConfig = ModelInferenceLogsUtils.getWorkspaceConfigJson(explicitWorkspaceId);
 				if (workspaceConfig != null) {
 					String configuredHarnessType = workspaceConfig.optString("harness_type", null);
 					if (configuredHarnessType != null && !configuredHarnessType.trim().isEmpty()) {
