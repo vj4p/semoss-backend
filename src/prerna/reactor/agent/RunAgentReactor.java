@@ -119,6 +119,27 @@ public class RunAgentReactor extends AbstractReactor {
 			throw new IllegalArgumentException("command (input) is required for RunAgent");
 		}
 
+		// A caller that didn't request a specific harness inherits the target
+		// workspace's configured default (WORKSPACE.CONFIG_JSON.harness_type) before
+		// falling back to AgentHarnessRegistry's own "semoss" default. This is what
+		// lets a workspace-level Agent Engine choice apply to every room built on it
+		// without any frontend plumbing - the workspaceId is already resolved above.
+		if ((harnessType == null || harnessType.trim().isEmpty()) && explicitWorkspaceId != null) {
+			try {
+				org.json.JSONObject workspaceConfig = prerna.engine.impl.model.inferencetracking.ModelInferenceLogsUtils
+						.getWorkspaceConfigJson(explicitWorkspaceId);
+				if (workspaceConfig != null) {
+					String configuredHarnessType = workspaceConfig.optString("harness_type", null);
+					if (configuredHarnessType != null && !configuredHarnessType.trim().isEmpty()) {
+						harnessType = configuredHarnessType.trim();
+					}
+				}
+			} catch (Exception e) {
+				logger.warn("RunAgentReactor: failed to resolve workspace-level harnessType for workspaceId={}: {}",
+						explicitWorkspaceId, e.getMessage());
+			}
+		}
+
 		logger.info(
 				"RunAgentReactor: roomId={} engineFallback={} harnessType={} workspaceId={} maxTurns={} maxReflections={} wait={} waitTimeoutMs={} media={} urls={}",
 				roomId, engineIdFallback, harnessType, explicitWorkspaceId, maxTurns, maxReflections, wait,
