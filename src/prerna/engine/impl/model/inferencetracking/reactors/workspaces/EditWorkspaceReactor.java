@@ -42,6 +42,7 @@ import org.apache.logging.log4j.Logger;
 import prerna.auth.User;
 import prerna.auth.utils.SecurityProjectUtils;
 import prerna.engine.impl.model.inferencetracking.ModelInferenceLogsUtils;
+import prerna.reactor.agent.AgentHarnessRegistry;
 import prerna.sablecc2.om.PixelDataType;
 import prerna.sablecc2.om.ReactorKeysEnum;
 import prerna.sablecc2.om.nounmeta.NounMetadata;
@@ -55,8 +56,8 @@ public class EditWorkspaceReactor extends AbstractWorkspaceReactor {
 		this.keysToGet = new String[] { ReactorKeysEnum.WORKSPACE_ID.getKey(), NAME, DESCRIPTION, SYSTEM_PROMPT,
 				IS_ACTIVE, ReactorKeysEnum.MCP.getKey(), PROMPTS, SKILLS, MODEL_ID, MAX_TURNS, MAX_SUBAGENT_DEPTH,
 				MAX_REFLECTIONS, MAX_SECONDS, MAX_SUBAGENTS_PER_RUN, MAX_SPAWNS_PER_TURN, SUBAGENTS, HOOKS,
-				USE_DEFAULT_AGENT_TOOLS, DISABLED_DEFAULT_TOOLS };
-		this.keyRequired = new int[] { 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+				USE_DEFAULT_AGENT_TOOLS, DISABLED_DEFAULT_TOOLS, HARNESS_TYPE };
+		this.keyRequired = new int[] { 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	}
 
 	/**
@@ -178,6 +179,14 @@ public class EditWorkspaceReactor extends AbstractWorkspaceReactor {
 		// clears it (falling back to room MODEL_ID / options at run time).
 		boolean modelIdProvided = getGenRowStruct(MODEL_ID) != null;
 		String workspaceModelId = modelIdProvided ? this.keyValue.get(MODEL_ID) : null;
+		// Which run harness every room built on this workspace uses. Presence-detected
+		// like modelId; a non-blank value must be a name AgentHarnessRegistry knows.
+		boolean harnessTypeProvided = getGenRowStruct(HARNESS_TYPE) != null;
+		String workspaceHarnessType = harnessTypeProvided ? this.keyValue.get(HARNESS_TYPE) : null;
+		if (harnessTypeProvided && workspaceHarnessType != null && !workspaceHarnessType.trim().isEmpty()
+				&& AgentHarnessRegistry.get(workspaceHarnessType.trim()) == null) {
+			return getError("Unknown harnessType: " + workspaceHarnessType.trim());
+		}
 		boolean useDefaultToolsProvided = getGenRowStruct(USE_DEFAULT_AGENT_TOOLS) != null;
 		Boolean useDefaultTools = null;
 		if (useDefaultToolsProvided) {
@@ -210,7 +219,7 @@ public class EditWorkspaceReactor extends AbstractWorkspaceReactor {
 			mirrorCoreFieldsIntoConfigJson(workspaceId, workspaceSystemPrompt, engines, projectDependencies, skillIds,
 					modelIdProvided, workspaceModelId, budgetUpdates, spawnPolicyUpdates, subagentsProvided,
 					subagentUpdates, hooksProvided, hookUpdates, useDefaultToolsProvided, useDefaultTools,
-					disabledDefaultToolsProvided, disabledDefaultTools);
+					disabledDefaultToolsProvided, disabledDefaultTools, harnessTypeProvided, workspaceHarnessType);
 		} catch (Exception e) {
 			classLogger.warn(
 					"Failed to mirror system_prompt/mcps/skills into CONFIG_JSON for workspaceId '{}' (legacy writes already succeeded)",

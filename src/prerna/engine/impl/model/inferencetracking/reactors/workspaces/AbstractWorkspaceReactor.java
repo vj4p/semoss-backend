@@ -74,6 +74,8 @@ public abstract class AbstractWorkspaceReactor extends AbstractReactor {
 	static final String SYSTEM_PROMPT = "systemPrompt";
 	/** Request key for the workspace/agent default model engine id (CONFIG_JSON.model_id). */
 	static final String MODEL_ID = "modelId";
+	/** Request key for the workspace/agent run harness (CONFIG_JSON.harness_type, e.g. "semoss"/"claude_code"). */
+	static final String HARNESS_TYPE = "harnessType";
 	/** Request key controlling whether general built-in agent tools are exposed. */
 	static final String USE_DEFAULT_AGENT_TOOLS = "useDefaultAgentTools";
 	/** Request key for default-tool names disabled for this workspace. */
@@ -346,7 +348,7 @@ public abstract class AbstractWorkspaceReactor extends AbstractReactor {
 			throws Exception {
 		mirrorCoreFieldsIntoConfigJson(workspaceId, systemPrompt, engines, projects, skills, modelIdProvided, modelId,
 				budgetUpdates, spawnPolicyUpdates, subagentsProvided, subagents, hooksProvided, hooks,
-				useDefaultToolsProvided, useDefaultTools, false, null);
+				useDefaultToolsProvided, useDefaultTools, false, null, false, null);
 	}
 
 	/**
@@ -386,7 +388,7 @@ public abstract class AbstractWorkspaceReactor extends AbstractReactor {
 			Map<String, Integer> budgetUpdates, Map<String, Integer> spawnPolicyUpdates, boolean subagentsProvided,
 			List<Map<String, Object>> subagents, boolean hooksProvided, List<Map<String, Object>> hooks,
 			boolean useDefaultToolsProvided, Boolean useDefaultTools, boolean disabledDefaultToolsProvided,
-			List<String> disabledDefaultTools)
+			List<String> disabledDefaultTools, boolean harnessTypeProvided, String harnessType)
 			throws Exception {
 		JSONObject cfg = ModelInferenceLogsUtils.getWorkspaceConfigJson(workspaceId);
 		if (cfg == null) {
@@ -404,6 +406,13 @@ public abstract class AbstractWorkspaceReactor extends AbstractReactor {
 				cfg.put("model_id", modelId.trim());
 			} else {
 				cfg.remove("model_id");
+			}
+		}
+		if (harnessTypeProvided) {
+			if (harnessType != null && !harnessType.trim().isEmpty()) {
+				cfg.put("harness_type", harnessType.trim());
+			} else {
+				cfg.remove("harness_type");
 			}
 		}
 		if (useDefaultToolsProvided) {
