@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.commons.text.StringSubstitutor;
@@ -138,6 +139,23 @@ public class ClaudeCodeManager {
 		classLogger.debug("Agent history check for room {}: projects folder {} at {}", roomId,
 				exists ? "found" : "not found", projectsDir);
 		return exists;
+	}
+
+	/**
+	 * Masks the credential kwargs in a generated python script so they can be
+	 * logged. The init script embeds the calling user's access_key/secret_key as
+	 * literals, and logging it verbatim writes a live credential pair into the
+	 * server log at INFO. Matches pyQuote's single-quoted form, including
+	 * backslash-escaped quotes inside the value.
+	 */
+	private static final Pattern SECRET_KWARG = Pattern
+			.compile("(access_key|secret_key)='(?:\\\\.|[^'\\\\])*'");
+
+	static String redactSecrets(String script) {
+		if (script == null) {
+			return null;
+		}
+		return SECRET_KWARG.matcher(script).replaceAll("$1='***'");
 	}
 
 	private String createQueryScript(String prompt, String systemPrompt) {
@@ -316,7 +334,7 @@ public class ClaudeCodeManager {
 				}
 				this.pyTranslator.runEmptyPyNoCancelTrace(commands);
 				classLogger.info("Initializing Claude Code python process with commands >>> {}",
-						String.join("\n", commands));
+						redactSecrets(String.join("\n", commands)));
 				setPrefix(cpwToInit);
 
 				this.cpw = cpwToInit;
