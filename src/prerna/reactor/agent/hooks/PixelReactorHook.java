@@ -28,10 +28,12 @@
 package prerna.reactor.agent.hooks;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
@@ -52,22 +54,38 @@ import prerna.reactor.agent.IToolHook;
  *
  * <pre>
  * { "kind": "pixel",
- *   "pixel": "MyReactor(arg='value');",
- *   "events": ["beforeRun", "afterTool"] }
+ *   "pixel": "ValidateApp(project=[\"${roomId}\"]);",
+ *   "events": ["afterTool"],
+ *   "tools": ["write_file", "edit_file"] }
  * </pre>
  *
  * If {@code events} is omitted or empty, the pixel fires on every
  * lifecycle event this hook gets called for (i.e. all five run-level
  * points + both tool-level points).
  *
+ * <p>{@code tools} narrows the two tool-level events to specific tool names,
+ * so a rule can be "after every write_file" rather than "after any tool".
+ * Omitted or empty means every tool. It has no effect on run-level events,
+ * which carry no tool. Names are matched exactly against the name the harness
+ * reports for the call.
+ *
  * <p>The pixel expression is executed via
  * {@link Insight#runPixel(String)} on the run's insight. Exceptions are
  * caught and logged so a misbehaving pixel cannot abort the run — the
  * same observer-style semantics as the other reference hooks.
  *
- * <p>No variable interpolation is performed today; the pixel string is
- * fired as-is. Interpolation (e.g. {@code ${toolName}}, {@code ${roomId}})
- * can be added in a follow-up if a use case emerges.
+ * <p>Before execution these {@code ${...}} tokens are substituted:
+ * {@code event}, {@code roomId} and {@code insightId} on every event, plus
+ * {@code toolName}, {@code toolCallId} and {@code iteration} on both tool
+ * events, and {@code durationMs} and {@code success} on {@code afterTool}.
+ * Tokens an event does not carry are left in place rather than blanked, so a
+ * typo surfaces as an unresolved token instead of an empty argument.
+ *
+ * <p>Substituted values are escaped for a double-quoted Pixel string, since
+ * tool names and ids come from the model and from MCP metadata and the
+ * expression runs with the user's own permissions. Place tokens inside quotes
+ * — {@code arg=["${toolName}"]} — so the escaping applies to the position the
+ * value actually lands in.
  */
 public final class PixelReactorHook implements IAgentRunHook, IToolHook {
 
@@ -93,6 +111,11 @@ public final class PixelReactorHook implements IAgentRunHook, IToolHook {
     private String pixel;
     /** Subset of {@link #KNOWN_EVENTS} to fire on; empty means fire on all. */
     private Set<String> eventFilter = Collections.emptySet();
+    /**
+     * Tool names to fire for on the two tool-level events; empty means every
+     * tool. Has no effect on run-level events, which carry no tool.
+     */
+    private Set<String> toolFilter = Collections.emptySet();
 
     @Override
     public void configure(JSONObject spec) {
@@ -120,6 +143,20 @@ public final class PixelReactorHook implements IAgentRunHook, IToolHook {
                 this.eventFilter = filter;
             }
         }
+
+        if (spec.has("tools")) {
+            JSONArray arr = spec.optJSONArray("tools");
+            if (arr != null && arr.length() > 0) {
+                Set<String> filter = new HashSet<>();
+                for (int i = 0; i < arr.length(); i++) {
+                    String tool = StringUtils.trimToNull(arr.optString(i, null));
+                    if (tool != null) {
+                        filter.add(tool);
+                    }
+                }
+                this.toolFilter = filter;
+            }
+        }
     }
 
     // IAgentRunHook lifecycle
@@ -135,19 +172,82 @@ public final class PixelReactorHook implements IAgentRunHook, IToolHook {
     @Override
     public void beforeTool(AgentRunContext ctx, String toolName, String toolCallId,
                            Map<String, Object> params, int iteration) {
-        fire(ctx, EVT_BEFORE_TOOL);
+        if (!matchesToolFilter(toolName)) {
+            return;
+        }
+        Map<String, String> vars = new HashMap<>();
+        vars.put("toolName", toolName);
+        vars.put("toolCallId", toolCallId);
+        vars.put("iteration", String.valueOf(iteration));
+        fire(ctx, EVT_BEFORE_TOOL, vars);
     }
 
     @Override
     public void afterTool(AgentRunContext ctx, String toolName, String toolCallId,
                           Map<String, Object> params, String resultContent,
                           long durationMs, boolean success, int iteration) {
-        fire(ctx, EVT_AFTER_TOOL);
+        if (!matchesToolFilter(toolName)) {
+            return;
+        }
+        Map<String, String> vars = new HashMap<>();
+        vars.put("toolName", toolName);
+        vars.put("toolCallId", toolCallId);
+        vars.put("iteration", String.valueOf(iteration));
+        vars.put("durationMs", String.valueOf(durationMs));
+        vars.put("success", String.valueOf(success));
+        fire(ctx, EVT_AFTER_TOOL, vars);
     }
 
     // Internals
 
+    /**
+     * True when this hook should fire for {@code toolName}. An empty filter
+     * matches every tool, which is the pre-filter behaviour.
+     */
+    private boolean matchesToolFilter(String toolName) {
+        return toolFilter.isEmpty() || (toolName != null && toolFilter.contains(toolName));
+    }
+
+    /**
+     * Escapes a value for insertion inside a double-quoted Pixel string.
+     *
+     * Tool names and ids originate from the model and from MCP tool metadata,
+     * so they are untrusted input being spliced into an expression that runs
+     * with the user's own permissions. Backslashes and quotes are escaped so a
+     * crafted value cannot close the string and append its own reactor call,
+     * and newlines are stripped since a literal newline would terminate the
+     * statement regardless of quoting.
+     */
+    private static String escapeForPixelString(String value) {
+        if (value == null) {
+            return "";
+        }
+        String escaped = value.replace("\\", "\\\\").replace("\"", "\\\"");
+        return escaped.replaceAll("[\\r\\n]", " ");
+    }
+
+    /**
+     * Substitutes the {@code ${...}} tokens this event provides. Tokens the
+     * event does not carry are left untouched rather than blanked, so a typo
+     * shows up in the log as an unresolved token instead of silently becoming
+     * an empty argument.
+     */
+    private String interpolate(String template, Map<String, String> vars) {
+        String result = template;
+        for (Map.Entry<String, String> var : vars.entrySet()) {
+            String token = "${" + var.getKey() + "}";
+            if (result.contains(token)) {
+                result = result.replace(token, escapeForPixelString(var.getValue()));
+            }
+        }
+        return result;
+    }
+
     private void fire(AgentRunContext ctx, String event) {
+        fire(ctx, event, Collections.emptyMap());
+    }
+
+    private void fire(AgentRunContext ctx, String event, Map<String, String> eventVars) {
         if (!eventFilter.isEmpty() && !eventFilter.contains(event)) {
             return;
         }
@@ -164,9 +264,16 @@ public final class PixelReactorHook implements IAgentRunHook, IToolHook {
         }
         Room room = ctx.getRoom();
         String roomId = room == null ? null : room.getId();
+
+        Map<String, String> vars = new HashMap<>(eventVars);
+        vars.put("event", event);
+        vars.put("roomId", roomId);
+        vars.put("insightId", insight.getInsightId());
+        String resolved = interpolate(pixel, vars);
+
         try {
-            logger.debug("[pixel-hook] event={} room={} firing pixel: {}", event, roomId, pixel);
-            insight.runPixel(pixel);
+            logger.debug("[pixel-hook] event={} room={} firing pixel: {}", event, roomId, resolved);
+            insight.runPixel(resolved);
         } catch (Exception e) {
             logger.warn("[pixel-hook] event={} room={} pixel threw — logging and continuing. cause: {}",
                     event, roomId, e.getMessage(), e);
