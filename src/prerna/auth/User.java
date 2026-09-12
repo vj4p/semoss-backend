@@ -874,7 +874,26 @@ public class User implements Serializable {
 		return thisSession;
 	}
 
+	/**
+	 * Register a browser session against this user.
+	 *
+	 * <p>
+	 * An anonymous user does not get one. A browser session is a real Chromium
+	 * process that the server drives on the caller's behalf, which is not something
+	 * an unidentified caller should be able to start — and without an identity there
+	 * is nobody to attribute or rate-limit it to.
+	 *
+	 * <p>
+	 * The guard lives here rather than in the reactors because there are three
+	 * separate creation paths — {@code SessionReactor}, {@code ReplayStepReactor}
+	 * (which mints one as a side effect of replaying a recording) and
+	 * {@code PlaywrightSession.forRemoteViewer} — and a per-reactor check would have
+	 * to be remembered by the next one added. Every path stores through here.
+	 */
 	public void setPlaywrightSession(String sessionId, PlaywrightSession playwrightSession) {
+		if (AbstractSecurityUtils.anonymousUsersEnabled() && isAnonymous()) {
+			throw new IllegalArgumentException("An anonymous user cannot open a browser session");
+		}
 		getPlaywrightSessionStore().put(sessionId, playwrightSession);
 	}
 

@@ -36,6 +36,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import prerna.reactor.AbstractReactor;
+import prerna.sablecc2.om.execptions.SemossPixelException;
 import prerna.sablecc2.om.GenRowStruct;
 import prerna.sablecc2.om.PixelDataType;
 import prerna.sablecc2.om.ReactorKeysEnum;
@@ -166,6 +167,19 @@ public class StepReactor extends AbstractReactor {
 					"Playwright session '" + sessionId + "' not found. The session may have expired or the server was restarted. Please start a new session.");
 		}
 		Map<String, Object> stepResult = PlaywrightSessionUtility.applyStep(playwrightSession, step, tabId);
+
+		// applyStep catches everything into {status: "failed", error: ...} rather than
+		// throwing, and nothing here used to read either key. So a step that did not
+		// happen still returned a screenshot of the unchanged page and still got
+		// recorded — a blocked URL, a selector that matched nothing, a closed tab, all
+		// reported as success. That is bad twice over: the caller cannot tell, and the
+		// phantom step is saved into the recording and replayed later.
+		if ("failed".equals(stepResult.get("status"))) {
+			Object error = stepResult.get("error");
+			throw new SemossPixelException(step.type() + " step failed: "
+					+ (error == null ? "no detail reported" : String.valueOf(error)));
+		}
+
 		boolean isPageChanged = (Boolean) stepResult.get("isPageChanged");
 		boolean isNewTab = (Boolean) stepResult.get("isNewTab");
 
