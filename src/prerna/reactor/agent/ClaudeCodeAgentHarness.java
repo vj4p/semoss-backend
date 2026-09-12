@@ -142,10 +142,32 @@ public class ClaudeCodeAgentHarness implements IAgentHarness {
         return defaults;
     }
 
+    /**
+     * The CLI's permission mode, accepting either spelling of the key.
+     *
+     * <p>
+     * Only {@code permission_mode} was read originally, but every caller in the
+     * product sends {@code permissionMode} — the workbench assistant builds it in
+     * camelCase and a repo-wide search for the snake_case spelling finds no sender
+     * at all. So plan mode, {@code acceptEdits} and {@code bypassPermissions} were
+     * silently no-ops in this harness: the value arrived, missed the lookup, and
+     * every run fell through to "default".
+     *
+     * <p>
+     * Accepting both here rather than renaming on the client fixes every existing
+     * caller at once, and costs nothing — the two spellings cannot disagree in
+     * practice, and snake_case wins if they ever do, since that is the name the CLI
+     * itself uses.
+     */
     private static String resolvePermissionMode(Map<String, Object> params) {
-        if (params == null || !params.containsKey("permission_mode")) {
+        if (params == null) {
             return "default";
         }
-        return String.valueOf(params.get("permission_mode"));
+        Object value = params.containsKey("permission_mode") ? params.get("permission_mode")
+                : params.get("permissionMode");
+        if (value == null || String.valueOf(value).trim().isEmpty()) {
+            return "default";
+        }
+        return String.valueOf(value).trim();
     }
 }

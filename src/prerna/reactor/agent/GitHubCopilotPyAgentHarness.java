@@ -132,10 +132,22 @@ public class GitHubCopilotPyAgentHarness implements IAgentHarness {
 		return defaults;
 	}
 
+	/**
+	 * The CLI's permission mode, accepting either spelling of the key. See
+	 * {@link ClaudeCodeAgentHarness#resolvePermissionMode} for why both are read —
+	 * the whole product sends {@code permissionMode} while only
+	 * {@code permission_mode} was looked up, so plan mode never took effect here
+	 * either.
+	 */
 	private static String resolvePermissionMode(Map<String, Object> params) {
-		if (params == null || !params.containsKey("permission_mode")) {
+		if (params == null) {
 			return "default";
 		}
-		return String.valueOf(params.get("permission_mode"));
+		Object value = params.containsKey("permission_mode") ? params.get("permission_mode")
+				: params.get("permissionMode");
+		if (value == null || String.valueOf(value).trim().isEmpty()) {
+			return "default";
+		}
+		return String.valueOf(value).trim();
 	}
 }

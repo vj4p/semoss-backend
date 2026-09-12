@@ -196,8 +196,26 @@ public class AppBuilderHarnessConfiguration {
         Files.write(configFile, root.toString(4).getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     * Renders the prompt block, or {@code null} when no engine is attached at all.
+     *
+     * <p>
+     * Suppressing the empty case matters more than it looks. With nothing attached
+     * the block still announced that "the user pre-selected these engines", listed
+     * {@code _None selected._} four times, and told the model never to use an
+     * unlisted engine — 732 characters whose only instruction was, in effect, "ask
+     * the user for an engine". Every project-scoped run paid for it, and a model
+     * reading it reasonably concludes it has no data access to offer. Saying nothing
+     * is strictly better than describing an empty allowlist.
+     */
     private static String buildSelectedEnginesPromptBody(
             Map<String, List<Map<String, String>>> enginesByType) {
+        boolean anyAttached = enginesByType != null && enginesByType.values().stream()
+                .anyMatch(list -> list != null && !list.isEmpty());
+        if (!anyAttached) {
+            return null;
+        }
+
         StringBuilder sb = new StringBuilder();
         sb.append("# Selected Engines\n\n");
         sb.append("The user pre-selected these engines for this project in the workbench ");
