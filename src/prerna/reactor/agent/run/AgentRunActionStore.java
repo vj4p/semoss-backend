@@ -182,6 +182,48 @@ public final class AgentRunActionStore {
 	}
 
 	/**
+	 * Return every pending action for a user, across all of their rooms.
+	 *
+	 * Every other read here is scoped to a single runId, which is right for
+	 * driving one conversation but cannot answer "what is waiting on me?" — a
+	 * caller would have to enumerate rooms and query each, and would still miss
+	 * any room it did not know about. ROOM_ID and RUN_ID are already columns on
+	 * the row, so one indexed query over USER_ID + STATUS covers it.
+	 *
+	 * Newest first, and bounded: this feeds a notification surface, not a
+	 * report.
+	 *
+	 * @param userId owner to scope to; never trust a client-supplied value here
+	 * @param limit  maximum rows to return; values below 1 fall back to 50
+	 */
+	public static List<Map<String, Object>> getPendingActionsForUser(String userId, int limit) {
+		int cappedLimit = limit < 1 ? 50 : Math.min(limit, 500);
+		IRDBMSEngine db = SystemEngineRegistry.getModelInferenceLogsDb();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		List<Map<String, Object>> pending = new ArrayList<>();
+		try {
+			String query = "SELECT ACTION_ID, RUN_ID, ROOM_ID, PARENT_MESSAGE_ID, TOOL_CALL_ID, TOOL_NAME, "
+					+ "TOOL_ARGS, EDITED_ARGS, TOOL_META, HAS_UI, UI_URL, STATUS, "
+					+ "RESULT, TOOL_STATUS, DATE_CREATED, DECIDED_AT, USER_ID "
+					+ "FROM AGENT_RUN_ACTION WHERE USER_ID = ? AND STATUS = 'PENDING' "
+					+ "ORDER BY DATE_CREATED DESC";
+			ps = db.getPreparedStatement(query);
+			ps.setString(1, userId);
+			rs = ps.executeQuery();
+			while (rs.next() && pending.size() < cappedLimit) {
+				pending.add(rowToMap(rs));
+			}
+			return pending;
+		} catch (Exception e) {
+			throw new IllegalStateException(
+					"Failed to load pending AGENT_RUN_ACTION rows for userId=" + userId, e);
+		} finally {
+			ConnectionUtils.closeAllConnectionsIfPooling(db, null, ps, rs);
+		}
+	}
+
+	/**
 	 * Return one action row by action id and owner, regardless of status.
 	 */
 	public static Map<String, Object> getActionById(String actionId, String userId) {
