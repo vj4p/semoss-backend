@@ -72,6 +72,7 @@ import prerna.engine.api.ModelTypeEnum;
 import prerna.engine.api.ToolExecutionResult;
 import prerna.engine.impl.InternalMCP;
 import prerna.engine.impl.MCPFactory;
+import prerna.engine.impl.model.RoomUtils;
 import prerna.engine.impl.model.message.ResponseMessage;
 import prerna.om.Insight;
 import prerna.project.api.IProject;
@@ -1463,6 +1464,41 @@ public final class MCPUtility {
 	}
 
 	/**
+	 * Where a room's MCP toolbox lives, for the caller's insight.
+	 *
+	 * <p>
+	 * The insight folder cannot be trusted for this. It usually <em>is</em> the room
+	 * folder — {@code Insight.setRoomForInsight} points it there — but an agent run
+	 * deliberately re-roots it to the run's working directory so the file tools
+	 * operate on the target project
+	 * ({@code SemossAgentHarness.activateFileSpace}). Reading the room folder out of
+	 * that field therefore looked in the project's assets folder for any
+	 * project-scoped run, and every room tool failed with "Unknown tool ... in mcp
+	 * definitions under &lt;project assets&gt;" — which made the whole room-toolbox
+	 * feature unusable exactly where it is most useful.
+	 *
+	 * <p>
+	 * The room id survives that re-rooting, so resolve the folder from the room
+	 * itself and fall back to the insight folder only when there is no room to ask
+	 * (a direct {@code RunMCPTool} call outside any room).
+	 *
+	 * @param insight the caller's insight; never null here.
+	 * @return the folder holding the room's {@code mcp/} definitions.
+	 */
+	private static String resolveRoomFolder(Insight insight) {
+		String roomId = insight.getRoomId();
+		if (roomId != null && !roomId.isBlank()) {
+			try {
+				return RoomUtils.getOrLoadRoom(roomId, insight).getRoomFolderPath();
+			} catch (Exception e) {
+				classLogger.warn("Could not load room '{}' to resolve its MCP folder; falling back to the insight folder",
+						roomId, e);
+			}
+		}
+		return insight.getInsightFolder();
+	}
+
+	/**
 	 * Resolves the engine or project, enforces user access, normalizes the tool
 	 * name, and executes the tool. Shared by RunMCPToolReactor (direct calls) and
 	 * AgentToolDecisionHandler (HITL approve/edit).
@@ -1474,7 +1510,7 @@ public final class MCPUtility {
 			if (insight == null) {
 				throw new IllegalArgumentException("Caller insight is required to execute a room MCP tool");
 			}
-			InternalMCP roomMcp = InternalMCP.genFromRoomFolder(insight.getInsightFolder());
+			InternalMCP roomMcp = InternalMCP.genFromRoomFolder(resolveRoomFolder(insight));
 			String cleaned = removeEngineIdFromToolsMethodName(engineId, toolName);
 			return roomMcp.callTool(cleaned, paramMap, insight);
 		}
