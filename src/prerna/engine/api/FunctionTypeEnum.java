@@ -41,6 +41,7 @@ import prerna.engine.impl.function.LocalPythonCustomEmbeddingsFunctionEngine;
 import prerna.engine.impl.function.LocalPythonFunctionEngine;
 import prerna.engine.impl.function.OpenAITranscribeFunctionEngine;
 import prerna.engine.impl.function.RESTFunctionEngine;
+import prerna.engine.impl.function.SearxngSearchFunctionEngine;
 import prerna.engine.impl.function.StreamRESTFunctionEngine;
 import prerna.engine.impl.function.mail.engine.ExchangeIMAPFunctionEngine;
 import prerna.engine.impl.function.mail.engine.ExchangePOP3FunctionEngine;
@@ -60,6 +61,12 @@ public enum FunctionTypeEnum {
 
 	BING_SEARCH("BING_SEARCH", BingSearchFunctionEngine.class.getName()),
 	BRAVE_SEARCH("BRAVE_SEARCH", BraveSearchFunctionEngine.class.getName()),
+
+	/**
+	 * Self-hosted metasearch. No API key, and no query leaves a host the operator
+	 * controls — which is the reason to prefer it over a commercial provider.
+	 */
+	SEARXNG_SEARCH("SEARXNG_SEARCH", SearxngSearchFunctionEngine.class.getName()),
 	SERVICE_NOW("SERVICE_NOW", ServiceNowFunctionEngine.class.getName()),
 
 	// a relay, over jakarta smtp
