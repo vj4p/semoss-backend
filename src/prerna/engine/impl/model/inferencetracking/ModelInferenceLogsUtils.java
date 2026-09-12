@@ -35,6 +35,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -4001,6 +4002,113 @@ src/prerna/engine/impl/model/inferencetracking/ModelInferenceLogsUtils.java	 *  
 						projectId, workspaceId, e.getMessage());
 			}
 		}
+	}
+
+	/**
+	 * Sum {@code MESSAGE} token columns per model, for a room and/or a user.
+	 *
+	 * <p>
+	 * Lives here rather than in the calling reactor because
+	 * {@code SystemEngineRegistry} gates the model-inference-logs database to a
+	 * short package allowlist that this class is on. Querying it from a reactor
+	 * package would mean widening that boundary; keeping the SQL with the rest of
+	 * the MESSAGE queries costs nothing and leaves the boundary alone.
+	 *
+	 * <p>
+	 * Grouped by {@code MESSAGE_TYPE} as well as model because the two row kinds
+	 * carry different halves of a call: an {@code INPUT} row holds the prompt and
+	 * cache columns, a {@code RESPONSE} row holds the completion. Summing across both
+	 * without distinguishing them would attribute prompt tokens to the response and
+	 * count every call twice.
+	 *
+	 * <p>
+	 * The model id is read as {@code COALESCE(MODEL_ID, AGENT_ID)}. {@code AGENT_ID}
+	 * is the legacy name for the same value and {@code MODEL_ID} is only ever filled
+	 * in by {@link #backfillModelIdFromAgentId()}, so on an instance where that has
+	 * not run every row still carries the id in {@code AGENT_ID} alone — and reading
+	 * {@code MODEL_ID} by itself returns nothing, which is indistinguishable from
+	 * "this room used no tokens".
+	 *
+	 * @param roomId    optional room filter.
+	 * @param userId    optional user filter.
+	 * @param startDate optional inclusive lower bound on {@code DATE_CREATED}.
+	 * @param endDate   optional inclusive upper bound on {@code DATE_CREATED}.
+	 * @return rows of {@code {modelId, llmCalls, inputTokens, outputTokens,
+	 *         thinkingTokens, cacheReadTokens, cacheWriteTokens}}, one per model.
+	 */
+	public static List<Map<String, Object>> getTokenTotalsByModel(String roomId, String userId, String startDate,
+			String endDate) {
+		Map<String, Map<String, Object>> byModel = new LinkedHashMap<>();
+
+		StringBuilder query = new StringBuilder(
+				"SELECT COALESCE(MODEL_ID, AGENT_ID), MESSAGE_TYPE, COUNT(MESSAGE_ID), SUM(INPUT_TOKENS), "
+						+ "SUM(OUTPUT_TOKENS), SUM(THINKING_TOKENS), SUM(CACHE_READ_TOKENS), "
+						+ "SUM(CACHE_CREATION_TOKENS) FROM MESSAGE WHERE COALESCE(MODEL_ID, AGENT_ID) IS NOT NULL");
+		List<String> params = new ArrayList<>();
+		if (roomId != null && !roomId.isBlank()) {
+			query.append(" AND ROOM_ID = ?");
+			params.add(roomId);
+		}
+		if (userId != null && !userId.isBlank()) {
+			query.append(" AND USER_ID = ?");
+			params.add(userId);
+		}
+		if (startDate != null && !startDate.isBlank()) {
+			query.append(" AND DATE_CREATED >= ?");
+			params.add(startDate);
+		}
+		if (endDate != null && !endDate.isBlank()) {
+			query.append(" AND DATE_CREATED <= ?");
+			params.add(endDate);
+		}
+		query.append(" GROUP BY COALESCE(MODEL_ID, AGENT_ID), MESSAGE_TYPE");
+
+		IRDBMSEngine modelInferenceLogsDb = SystemEngineRegistry.getModelInferenceLogsDb();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		try {
+			ps = modelInferenceLogsDb.getPreparedStatement(query.toString());
+			for (int i = 0; i < params.size(); i++) {
+				ps.setString(i + 1, params.get(i));
+			}
+			if (ps.execute()) {
+				rs = ps.getResultSet();
+				while (rs.next()) {
+					String modelId = rs.getString(1);
+					String messageType = rs.getString(2);
+					Map<String, Object> row = byModel.computeIfAbsent(modelId, id -> {
+						Map<String, Object> fresh = new LinkedHashMap<>();
+						fresh.put("modelId", id);
+						fresh.put("llmCalls", 0L);
+						fresh.put("inputTokens", 0L);
+						fresh.put("outputTokens", 0L);
+						fresh.put("thinkingTokens", 0L);
+						fresh.put("cacheReadTokens", 0L);
+						fresh.put("cacheWriteTokens", 0L);
+						return fresh;
+					});
+					if ("RESPONSE".equalsIgnoreCase(messageType)) {
+						addTo(row, "llmCalls", rs.getLong(3));
+						addTo(row, "outputTokens", rs.getLong(5));
+						addTo(row, "thinkingTokens", rs.getLong(6));
+					} else if ("INPUT".equalsIgnoreCase(messageType)) {
+						addTo(row, "inputTokens", rs.getLong(4));
+						addTo(row, "cacheReadTokens", rs.getLong(7));
+						addTo(row, "cacheWriteTokens", rs.getLong(8));
+					}
+				}
+			}
+		} catch (SQLException e) {
+			classLogger.error("Failed to sum token totals by model", e);
+		} finally {
+			ConnectionUtils.closeAllConnectionsIfPooling(modelInferenceLogsDb, null, ps, rs);
+		}
+
+		return new ArrayList<>(byModel.values());
+	}
+
+	private static void addTo(Map<String, Object> row, String key, long delta) {
+		row.put(key, ((Number) row.get(key)).longValue() + delta);
 	}
 
 }
