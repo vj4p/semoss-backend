@@ -99,9 +99,23 @@ final class PlatformAgentToolHandlers {
 	private static final String PARAM_PATH = "path";
 	private static final String PARAM_NEW_PATH = "new_path";
 
+	/**
+	 * Commands {@code BashCommand} will run. Everything else is refused by
+	 * {@link #validateCommand}.
+	 *
+	 * <p>
+	 * {@code echo} earns its place by being inert rather than useful: the only
+	 * thing that would make it dangerous is sending its output somewhere, and
+	 * {@code validateCommand} already rejects redirects, pipes, chaining,
+	 * backticks and {@code $()} before the allowlist is consulted. Leaving it out
+	 * cost more than it saved — models reach for {@code echo} constantly to
+	 * confirm a step, every one of those calls came back "Command not allowed",
+	 * and the run lost an iteration and showed a real tool failure in telemetry
+	 * for something that never needed to run at all.
+	 */
 	private static final Set<String> ALLOWED_COMMANDS = new HashSet<>(Arrays.asList("pwd", "ls", "dir", "find", "cat",
 			"head", "tail", "wc", "stat", "grep", "rg", "sed", "awk", "cut", "sort", "uniq", "tr", "diff", "python",
-			"python3", "mkdir", "touch", "cp", "mv", "curl", "wget", "zip", "unzip", "jq", "which"));
+			"python3", "mkdir", "touch", "cp", "mv", "curl", "wget", "zip", "unzip", "jq", "which", "echo"));
 
 	private PlatformAgentToolHandlers() {
 	}
