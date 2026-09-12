@@ -37,6 +37,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.JSONObject;
 
+import prerna.auth.User;
 import prerna.auth.utils.SecurityEngineUtils;
 import prerna.auth.utils.SecurityModelMetadataUtils;
 import prerna.cluster.util.ClusterUtil;
@@ -57,6 +58,7 @@ import prerna.reactor.agent.sandbox.SandboxPolicyBuilder;
 import prerna.reactor.agent.skill.SkillStager;
 import prerna.reactor.agent.subagent.AgentSubAgentRegistry;
 import prerna.util.AssetUtility;
+import prerna.util.Constants;
 import prerna.util.Utility;
 
 /**
@@ -229,6 +231,8 @@ public final class AgentRunner {
 		if (filePath != null && !filePath.trim().isEmpty()) {
 			params.put(FILE_PATH_PARAM_KEY, filePath);
 		}
+
+		mountProjectForShell(params, insight);
 
 		SandboxPolicy sandboxPolicy = buildSandboxPolicyFromParams(params);
 
@@ -497,6 +501,51 @@ public final class AgentRunner {
 	 * @throws IllegalArgumentException for unresolvable project, illegal subdir, or
 	 *                                  containment failure
 	 */
+	/**
+	 * Make the run's project reachable from inside the user's chroot jail.
+	 *
+	 * {@link #resolveWorkingDir} happily points the run at a project's assets
+	 * folder, but a path only exists inside the jail once it has been symlinked
+	 * there. Nothing in this class did that, so the jail-based tools — everything
+	 * routed through {@code CmdExecUtil}, i.e. {@code BashCommand} — could not
+	 * reach the project and failed on the very first command with
+	 * {@code cd: ...: No such file or directory}. The Java-side file tools
+	 * ({@code WriteFile} and friends) operate on the real path and so kept
+	 * working, which made the failure look like a model quirk rather than a
+	 * missing mount.
+	 *
+	 * Until now this only ever worked because {@code Insight.setContext} also
+	 * symlinks the project, and the UI calls SetContext when it loads a room. A
+	 * room whose first message starts a run before any load — the normal "create
+	 * a project and immediately ask for an app" path — had no such call, and
+	 * neither do scheduled runs or API callers that never touch the UI. Doing it
+	 * here covers all of them.
+	 *
+	 * Best-effort: a failure to mount must not abort the run, since the file
+	 * tools do not need it. Idempotent — SymlinkHelper tolerates re-linking.
+	 */
+	private static void mountProjectForShell(Map<String, Object> params, Insight insight) {
+		Object projectObj = params.get(PARAM_PROJECT);
+		if (projectObj == null || String.valueOf(projectObj).trim().isEmpty()) {
+			return;
+		}
+		if (!Boolean.parseBoolean(Utility.getDIHelperProperty(Constants.CHROOT_ENABLE))) {
+			return;
+		}
+		User user = insight == null ? null : insight.getUser();
+		if (user == null) {
+			return;
+		}
+		String projectId = String.valueOf(projectObj).trim();
+		try {
+			user.getUserSymlinkHelper().symlinkProject(user, projectId);
+			logger.info("AgentRunner: mounted project='{}' into the chroot for shell tools", projectId);
+		} catch (Exception e) {
+			logger.warn("AgentRunner: could not mount project='{}' into the chroot; "
+					+ "BashCommand will not be able to reach it", projectId, e);
+		}
+	}
+
 	private static String resolveWorkingDir(Room room, Map<String, Object> params, String effectiveWorkspaceId) {
 		// Legacy filePath - strip + warn, never honor.
 		Object legacyFilePath = params.remove(PARAM_FILE_PATH_LEGACY);
