@@ -1613,7 +1613,9 @@ public class Insight implements Serializable {
 	/**
 	 * Returns the shell-command executor for this insight, creating it on first
 	 * access. The initial working directory is the active context project's asset
-	 * folder, or the chroot root if no project context is set.
+	 * folder when one is set, otherwise this insight's own folder (for a
+	 * room-bound insight that is the room folder), and only the chroot root as a
+	 * last resort.
 	 *
 	 * @return the CmdExecUtil
 	 * @throws NullPointerException if no user is bound to this insight
@@ -1629,7 +1631,25 @@ public class Insight implements Serializable {
 						this.contextProjectId);
 				this.cmdUtil = new CmdExecUtil(this.user, this.insightId, appRootFolder);
 			} else if (Boolean.parseBoolean(Utility.getDIHelperProperty(Constants.CHROOT_ENABLE))) {
-				this.cmdUtil = new CmdExecUtil(this.user, this.insightId, "/");
+				// No project context. Starting at "/" drops the user at the root of
+				// their chroot, so `pwd` reads like a filesystem escape and any
+				// relative write lands in the jail root instead of the work they
+				// have open. Prefer this insight's own folder — for a room-bound
+				// insight setInsightFolder() has already pointed that at the room
+				// folder, which is the same directory the agent's own tools are
+				// confined to (see PlatformAgentToolHandlers' working-dir
+				// resolution). Fall back to "/" only if the folder cannot be
+				// resolved, preserving the previous behaviour rather than failing.
+				String insightDir = null;
+				try {
+					insightDir = getInsightFolder();
+				} catch (Exception e) {
+					classLogger.warn(
+							"Could not resolve the insight folder for insightId={}; falling back to the chroot root",
+							this.insightId, e);
+				}
+				this.cmdUtil = new CmdExecUtil(this.user, this.insightId,
+						insightDir == null || insightDir.trim().isEmpty() ? "/" : insightDir);
 			}
 		}
 		return this.cmdUtil;
