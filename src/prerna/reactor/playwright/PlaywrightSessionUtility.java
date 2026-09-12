@@ -45,6 +45,8 @@ import com.microsoft.playwright.PlaywrightException;
 import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.LoadState;
 
+import prerna.remoteviewer.security.RemoteBrowserUrlSafetyValidator;
+
 /**
  * Utility class for session-related Playwright operations
  */
@@ -786,6 +788,19 @@ public class PlaywrightSessionUtility {
 	 */
 	private static void navigateStep(Page page, PlaywrightStep step, Map<String, Object> response) {
 		long start = System.currentTimeMillis();
+
+		// SSRF guard. This is a caller-supplied URL fetched by a server-side browser,
+		// so without this a step could navigate to http://169.254.169.254/ and read
+		// cloud instance metadata, or reach any service on the internal network.
+		//
+		// The remote-viewer path already validated every URL it opened; this Pixel
+		// path did not, despite driving the same browser. Reusing that validator keeps
+		// one definition of "safe host" rather than a second, drifting copy: scheme
+		// allowlist, the configurable domain whitelist, the private/reserved ranges,
+		// and a DNS resolution check that also catches rebinding, failing closed when
+		// resolution fails.
+		RemoteBrowserUrlSafetyValidator.validate(step.url());
+
 		var opts = new Page.NavigateOptions().setWaitUntil(com.microsoft.playwright.options.WaitUntilState.LOAD)
 				.setTimeout(60_000);
 		page.navigate(step.url(), opts);

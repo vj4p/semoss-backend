@@ -36,6 +36,7 @@ import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Page;
 
+import prerna.auth.utils.AbstractSecurityUtils;
 import prerna.reactor.AbstractReactor;
 import prerna.sablecc2.om.PixelDataType;
 import prerna.sablecc2.om.nounmeta.NounMetadata;
@@ -46,6 +47,18 @@ public class SessionReactor extends AbstractReactor {
 
 	@Override
 	public NounMetadata execute() {
+		// Spawning a server-side browser is not something an unauthenticated caller
+		// should be able to do: it costs a real Chromium process and, together with a
+		// navigate step, makes the server fetch URLs on the caller's behalf.
+		//
+		// This one guard covers the family. Every other Playwright reactor needs a
+		// session id, ids are only minted here, and the store they are looked up in
+		// hangs off the calling User — so a session cannot be reached by anyone but
+		// the user who created it, and a caller who cannot create one cannot drive one.
+		if (AbstractSecurityUtils.anonymousUsersEnabled() && this.insight.getUser().isAnonymous()) {
+			throwAnonymousUserError();
+		}
+
 		Browser browser = PlaywrightBrowserProvider.getBrowser();
 
 		int width = 1280;
