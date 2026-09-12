@@ -41,8 +41,11 @@ package prerna.reactor.agent.runtime;
  * <li>{@link #SYSTEM_PROMPT} -- harness baseline (this file)</li>
  * <li>Subagent prompt block -- synthesized by the harness when subagent tools
  * are in play (see {@link SemossAgentHarness})</li>
- * <li>Project AGENTS.md / CLAUDE.md -- disabled by default; opt-in per
- * room</li>
+ * <li>Project AGENTS.md / CLAUDE.md -- always applied when present. Discovered by
+ * {@link AgentsMdLoader#discover} from the run's working directory (for a
+ * project-scoped run, the project's assets folder) and appended unconditionally by
+ * {@code AgentConfig.getComposedAgentPrompt}. This is the layer a project uses to
+ * state its own conventions.</li>
  * <li>{@code room.options.instructions} or -- room/run-specific overrides
  * workspace {@code CONFIG_JSON.system_prompt}</li>
  * </ol>
