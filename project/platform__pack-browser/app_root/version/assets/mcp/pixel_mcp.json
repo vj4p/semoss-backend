@@ -1,0 +1,377 @@
+{
+  "tools": [
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "Session_Arguments",
+        "properties": {},
+        "required": []
+      },
+      "name": "Session",
+      "description": "Reactor that initiate a new session and return its id",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "Session",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Session"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "Screenshot_Arguments",
+        "properties": {
+          "tabId": {
+            "description": "The id of the current tab of the playwright",
+            "title": "tabId",
+            "type": "string"
+          },
+          "paramValues": {
+            "description": "Map containing the param name to param values",
+            "title": "paramValues",
+            "type": "object"
+          },
+          "sessionId": {
+            "description": "The id of the current session of the playwright",
+            "title": "sessionId",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "tabId"
+        ]
+      },
+      "name": "Screenshot",
+      "description": "Reactor that that return a fresh screenshot for a session",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "Screenshot",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Screenshot"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "ProbeElement_Arguments",
+        "properties": {
+          "tabId": {
+            "description": "No description present",
+            "title": "tabId",
+            "type": "string"
+          },
+          "sessionId": {
+            "description": "Playwright session ID that stores information about the history of actions done during that session",
+            "title": "sessionId",
+            "type": "string"
+          },
+          "coords": {
+            "description": "Coordinates (x,y) to probe the DOM element at. Format: 'x,y' (e.g., '100,200')",
+            "title": "coords",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "coords"
+        ]
+      },
+      "name": "ProbeElement",
+      "description": "Probe the DOM element at specified coordinates in the current page of the playwright session",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "ProbeElement",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Probe Element"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "ExtractElementsDataForLLM_Arguments",
+        "properties": {
+          "tabId": {
+            "description": "The id of the current tab in the session",
+            "title": "tabId",
+            "type": "string"
+          },
+          "paramValues": {
+            "description": "Map containing the param name to param values",
+            "title": "paramValues",
+            "type": "object"
+          },
+          "sessionId": {
+            "description": "The id of the session of the current playwright",
+            "title": "sessionId",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "tabId",
+          "paramValues"
+        ]
+      },
+      "name": "ExtractElementsDataForLLM",
+      "description": "Extracts interactive HTML elements data from a specified area of the webpage for LLM processing.",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "ExtractElementsDataForLLM",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Extract Elements Data For LLM"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "CheckNetworkIdle_Arguments",
+        "properties": {
+          "tabId": {
+            "description": "the tab id for the current session ",
+            "title": "tabId",
+            "type": "string"
+          },
+          "quietMillis": {
+            "description": "No description present",
+            "title": "quietMillis",
+            "type": "string"
+          },
+          "sessionId": {
+            "description": "The id for the current session",
+            "title": "sessionId",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "tabId"
+        ]
+      },
+      "name": "CheckNetworkIdle",
+      "description": "Checks if the network activity for a specific Playwright session tab is idle.",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "CheckNetworkIdle",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Check Network Idle"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "GetAllSteps_Arguments",
+        "properties": {
+          "fileName": {
+            "description": "The name of the record file",
+            "title": "fileName",
+            "type": "string"
+          },
+          "project": {
+            "description": "Name of the project",
+            "title": "project",
+            "type": "string"
+          },
+          "sessionId": {
+            "description": "The id of the current session of the playwright",
+            "title": "sessionId",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "sessionId",
+          "fileName"
+        ]
+      },
+      "name": "GetAllSteps",
+      "description": "Retrieves all recorded Playwright steps from a specified file and formats them for frontend display.",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "GetAllSteps",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Get All Steps"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "Step_Arguments",
+        "properties": {
+          "tabId": {
+            "description": "No description present",
+            "title": "tabId",
+            "type": "string"
+          },
+          "paramValues": {
+            "description": "Map of step parameters. Required keys: type (NAVIGATE, CLICK, TYPE, SCROLL, WAIT), url (for NAVIGATE), coords (for CLICK and TYPE), text (for TYPE), pressEnter (for TYPE), deltaY (for SCROLL), waitAfterMs (optional for all types)",
+            "title": "paramValues",
+            "type": "object"
+          },
+          "stepIndex": {
+            "description": "Optional. Zero-based index position where the step should be inserted within the page after execution. Required if pageIndex is provided. Use 0 to insert at the beginning, or any value up to the current number of steps to append.",
+            "title": "stepIndex",
+            "type": "string"
+          },
+          "pageIndex": {
+            "description": "Optional. Zero-based index of the page within the tab where the step should be inserted after execution. If not provided, step is appended based on page change detection.",
+            "title": "pageIndex",
+            "type": "string"
+          },
+          "sessionId": {
+            "description": "Playwright session ID that stores information about the history of actions done during that session",
+            "title": "sessionId",
+            "type": "string"
+          },
+          "shouldStore": {
+            "description": "Boolean flag to indicate whether to store the value of TYPE actions in the session history. If false, the value will be replaced with an empty string.",
+            "title": "shouldStore",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "tabId",
+          "paramValues"
+        ]
+      },
+      "name": "Step",
+      "description": "Execute a step in the current page of the playwright session",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "Step",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Step"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "SaveAll_Arguments",
+        "properties": {
+          "name": {
+            "description": "the name of the recorded file",
+            "title": "name",
+            "type": "string"
+          },
+          "project": {
+            "description": "Name of the project",
+            "title": "project",
+            "type": "string"
+          },
+          "description": {
+            "description": "The description of the recorded file",
+            "title": "description",
+            "type": "string"
+          },
+          "sessionId": {
+            "description": "The id of the current session of the playwright",
+            "title": "sessionId",
+            "type": "string"
+          },
+          "title": {
+            "description": "The title of the recorded file",
+            "title": "title",
+            "type": "string"
+          },
+          "intent": {
+            "description": "The intention or the purpose of the recorded file",
+            "title": "intent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "sessionId",
+          "name"
+        ]
+      },
+      "name": "SaveAll",
+      "description": "Reactor that replays step that is in order to run by given , sesionId, tabId, and fileName",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "SaveAll",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Save All"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "ReplayStep_Arguments",
+        "properties": {
+          "paramValues": {
+            "description": "Map containing the param name to param values",
+            "title": "paramValues",
+            "type": "object"
+          },
+          "tabId": {
+            "description": "The id of the current tab of the playwright",
+            "title": "tabId",
+            "type": "string"
+          },
+          "fileName": {
+            "description": "the name of the recorder file",
+            "title": "fileName",
+            "type": "string"
+          },
+          "executeAll": {
+            "description": "Boolean that decide if you need to  execute all the remaining steps",
+            "title": "executeAll",
+            "type": "string"
+          },
+          "project": {
+            "description": "Name of the project",
+            "title": "project",
+            "type": "string"
+          },
+          "sessionId": {
+            "description": "The id of the current session of the playwright",
+            "title": "sessionId",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "fileName",
+          "project"
+        ]
+      },
+      "name": "ReplayStep",
+      "description": "Reactor that replays step that is in order to run by given , sesionId, tabId, and fileName",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "ReplayStep",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Replay Step"
+    }
+  ]
+}

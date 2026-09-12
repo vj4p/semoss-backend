@@ -1,0 +1,194 @@
+{
+  "tools": [
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "GetOwlDictionary_Arguments",
+        "properties": {
+          "database": {
+            "description": "The id/name of the database engine to use",
+            "title": "database",
+            "type": "string"
+          }
+        },
+        "required": [
+          "database"
+        ]
+      },
+      "name": "GetOwlDictionary",
+      "description": "No description present",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "GetOwlDictionary",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Get Owl Dictionary"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "GetDatabaseTableStructure_Arguments",
+        "properties": {
+          "database": {
+            "description": "The database id",
+            "title": "database",
+            "type": "string"
+          }
+        },
+        "required": [
+          "database"
+        ]
+      },
+      "name": "GetDatabaseTableStructure",
+      "description": "Returns the complete structure of a database, including all concepts and their properties.\n\nEach result row contains:\n  - PARENTSEMOSSNAME   : Logical table name (RDBMS) or vertex name (Graph)\n  - SEMOSSNAME         : Logical column name (RDBMS) or property name (Graph)\n  - PROPERTY_TYPE      : Data type of the column or property\n  - PK                 : Whether this row represents a graph vertex itself, rather than a property on it (only relevant for rdf/graph dbs)\n  - PARENTPHYSICALNAME : Physical table/vertex name as stored in the database\n  - PHYSICALNAME       : Physical column/property name as stored in the database\n\nNotes:\n  - Logical names (PARENTSEMOSSNAME, SEMOSSNAME) reflect the schema as modeled in SEMOSS\n  - Physical names (PARENTPHYSICALNAME, PHYSICALNAME) reflect the actual database values\n  - For Graph: a row where PK is true and SEMOSSNAME is empty represents the vertex itself, not a property\n  - Results are ordered by PARENTSEMOSSNAME, PK, then SEMOSSNAME\n",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "GetDatabaseTableStructure",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Get Database Table Structure"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "TextToSQL_Arguments",
+        "properties": {
+          "paramValues": {
+            "description": "Map containing the param name to param values",
+            "title": "paramValues",
+            "type": "object"
+          },
+          "database": {
+            "description": "The database id for the RDBMS we want to generate a SQL query against",
+            "title": "database",
+            "type": "string"
+          },
+          "model": {
+            "description": "The model id used to generate the SQL query",
+            "title": "model",
+            "type": "string"
+          },
+          "error": {
+            "description": "This is an optional parameter to pass in the error associated with a previous SQL query prediction",
+            "title": "error",
+            "type": "string"
+          },
+          "command": {
+            "description": "The user text to be turned into the SQL query based on the database schema",
+            "title": "command",
+            "type": "string"
+          },
+          "sql": {
+            "description": "The SQL query",
+            "title": "sql",
+            "type": "string"
+          }
+        },
+        "required": [
+          "database",
+          "model",
+          "command"
+        ]
+      },
+      "name": "TextToSQL",
+      "description": "Convert natural language to SQL. Also allows users to pass in old SQL and SQL errors to generate new SQL",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "TextToSQL",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Text To SQL"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "SqlQuery_Arguments",
+        "properties": {
+          "database": {
+            "description": "The database id",
+            "title": "database",
+            "type": "string"
+          },
+          "query": {
+            "description": "One or more SQL statements to parse, check for database access, and execute in order.",
+            "title": "query",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Limits the number of rows retrieved by a select query",
+            "title": "limit",
+            "type": "integer"
+          },
+          "commit": {
+            "description": "No description present",
+            "title": "commit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query",
+          "database"
+        ]
+      },
+      "name": "SqlQuery",
+      "description": "Execute one or more SQL statements against a database",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "SqlQuery",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Sql Query"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "Collect_Arguments",
+        "properties": {
+          "task": {
+            "description": "Task object (can retrieve the object by using Task(taskId) where taskId is the unique id for the task)",
+            "title": "task",
+            "type": "string"
+          },
+          "meta": {
+            "description": "Boolean indication (true or false) of whether to retrieve metadata",
+            "title": "meta",
+            "type": "string"
+          },
+          "limit": {
+            "description": "The number to collect",
+            "title": "limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "task",
+          "limit",
+          "meta"
+        ]
+      },
+      "name": "Collect",
+      "description": "No description present",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "Collect",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Collect"
+    }
+  ]
+}

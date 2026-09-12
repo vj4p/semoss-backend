@@ -1,0 +1,103 @@
+{
+  "tools": [
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "SaveAppBlocksJson_Arguments",
+        "properties": {
+          "project": {
+            "description": "Name of the project",
+            "title": "project",
+            "type": "string"
+          },
+          "json": {
+            "description": "The JSON that represents the blocks for the app",
+            "title": "json",
+            "type": "string"
+          },
+          "comment": {
+            "description": "This key can represent a string comment, a map containing the data for a given comment, or the id for an existing comment",
+            "title": "comment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "json",
+          "comment"
+        ]
+      },
+      "name": "SaveAppBlocksJson",
+      "description": "No description present",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "SaveAppBlocksJson",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Save App Blocks Json"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "PublishProject_Arguments",
+        "properties": {
+          "release": {
+            "description": "Boolean to confirm the operation should be released across containers",
+            "title": "release",
+            "type": "string"
+          },
+          "project": {
+            "description": "Name of the project",
+            "title": "project",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "release"
+        ]
+      },
+      "name": "PublishProject",
+      "description": "No description present",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "PublishProject",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Publish Project"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "BuildAndPublishApp_Arguments",
+        "properties": {
+          "project": {
+            "description": "The unique id (or alias) of the project to build and publish.",
+            "title": "project",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project"
+        ]
+      },
+      "name": "BuildAndPublishApp",
+      "description": "Build the app from assets/client using the configured builder service, write output to assets/portals, and publish the project. Output that could not be served, such as absolute asset urls from a missing base setting, is reported instead of published.",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "BuildAndPublishApp",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Build And Publish App"
+    }
+  ]
+}

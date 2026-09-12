@@ -1,0 +1,206 @@
+{
+  "tools": [
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "ListStoragePath_Arguments",
+        "properties": {
+          "storagePath": {
+            "description": "The storage path to list contents from",
+            "title": "storagePath",
+            "type": "string"
+          },
+          "storage": {
+            "description": "The storage engine instance or id",
+            "title": "storage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "storage",
+          "storagePath"
+        ]
+      },
+      "name": "ListStoragePath",
+      "description": "List the files and folders in a storage path",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "ListStoragePath",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "List Storage Path"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "ListStoragePathDetails_Arguments",
+        "properties": {
+          "storagePath": {
+            "description": "The storage path to get details from.\nThe response is a vector of maps with keys:\n`Path`, `Name`, `Size`, `MimeType`, `ModTime`, `IsDir`, `Metadata`.\n",
+            "title": "storagePath",
+            "type": "string"
+          },
+          "storage": {
+            "description": "The storage engine instance or id",
+            "title": "storage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "storage",
+          "storagePath"
+        ]
+      },
+      "name": "ListStoragePathDetails",
+      "description": "Get detailed information about files and folders in a storage path.\nReturns one map per file/folder with common keys:\n`Path`, `Name`, `Size`, `MimeType`, `ModTime`, `IsDir`, `Metadata`.\n",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "ListStoragePathDetails",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "List Storage Path Details"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "PullFromStorage_Arguments",
+        "properties": {
+          "filePath": {
+            "description": "The local path to download files to",
+            "title": "filePath",
+            "type": "string"
+          },
+          "storagePath": {
+            "description": "The storage path(s) to download from",
+            "title": "storagePath",
+            "type": "string"
+          },
+          "storage": {
+            "description": "The storage engine instance or id",
+            "title": "storage",
+            "type": "string"
+          },
+          "version": {
+            "description": "Optional version ID to download a specific object version (specific to the cloud storage provider)",
+            "title": "version",
+            "type": "string"
+          },
+          "space": {
+            "description": "This is an optional field to determine the space in which the relative file path exists. When this parameter is not provided, the space is assumed to be the current insight (when the insight is attached to a room it will be the room space). If an UUID is provided, it will be treated as a project id and use the project's directory structure. If the key \"user\" is provided it will be the logged in user's space.",
+            "title": "space",
+            "type": "string"
+          }
+        },
+        "required": [
+          "storage",
+          "storagePath",
+          "filePath"
+        ]
+      },
+      "name": "PullFromStorage",
+      "description": "Pull files from a storage path to a local path",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "PullFromStorage",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Pull From Storage"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "PushToStorage_Arguments",
+        "properties": {
+          "metadata": {
+            "description": "Optional metadata map to attach to uploaded objects",
+            "title": "metadata",
+            "type": "object"
+          },
+          "filePath": {
+            "description": "The local path(s) to upload from",
+            "title": "filePath",
+            "type": "string"
+          },
+          "storagePath": {
+            "description": "The storage path to upload files to",
+            "title": "storagePath",
+            "type": "string"
+          },
+          "storage": {
+            "description": "The storage engine instance or id",
+            "title": "storage",
+            "type": "string"
+          },
+          "space": {
+            "description": "This is an optional field to determine the space in which the relative file path exists. When this parameter is not provided, the space is assumed to be the current insight (when the insight is attached to a room it will be the room space). If an UUID is provided, it will be treated as a project id and use the project's directory structure. If the key \"user\" is provided it will be the logged in user's space.",
+            "title": "space",
+            "type": "string"
+          }
+        },
+        "required": [
+          "storage",
+          "storagePath",
+          "filePath"
+        ]
+      },
+      "name": "PushToStorage",
+      "description": "Push files from a local path to a storage path",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "PushToStorage",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Push To Storage"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "DeleteFromStorage_Arguments",
+        "properties": {
+          "storagePath": {
+            "description": "The storage path(s) to delete",
+            "title": "storagePath",
+            "type": "string"
+          },
+          "storage": {
+            "description": "The storage engine instance or id",
+            "title": "storage",
+            "type": "string"
+          },
+          "leaveFolderStructure": {
+            "description": "Boolean value if the folder structure should still be maintained even when deleting the path. Default is false.",
+            "title": "leaveFolderStructure",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "storage",
+          "storagePath"
+        ]
+      },
+      "name": "DeleteFromStorage",
+      "description": "Delete files or folders from storage",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "DeleteFromStorage",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Delete From Storage"
+    }
+  ]
+}

@@ -1,0 +1,217 @@
+{
+  "tools": [
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "ProjectGitStatus_Arguments",
+        "properties": {
+          "project": {
+            "description": "The project id",
+            "title": "project",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project"
+        ]
+      },
+      "name": "ProjectGitStatus",
+      "description": "This reactor returns the git working tree status for a project",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "ProjectGitStatus",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Project Git Status"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "ProjectGitDiff_Arguments",
+        "properties": {
+          "side": {
+            "description": "STAGED, UNSTAGED, or CONFLICT",
+            "title": "side",
+            "type": "string"
+          },
+          "filePath": {
+            "description": "The repo-relative file path to diff",
+            "title": "filePath",
+            "type": "string"
+          },
+          "project": {
+            "description": "The project id",
+            "title": "project",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "filePath",
+          "side"
+        ]
+      },
+      "name": "ProjectGitDiff",
+      "description": "This reactor returns the diff for a file on a given side (STAGED, UNSTAGED, or CONFLICT) in a project's git repository",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "ProjectGitDiff",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Project Git Diff"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "ProjectGitBranches_Arguments",
+        "properties": {
+          "project": {
+            "description": "The project id",
+            "title": "project",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project"
+        ]
+      },
+      "name": "ProjectGitBranches",
+      "description": "This reactor returns the local and remote branches for a project's git repository",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "ProjectGitBranches",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Project Git Branches"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "ProjectGitCreateBranch_Arguments",
+        "properties": {
+          "startPoint": {
+            "description": "Optional start point for the new branch, defaults to HEAD",
+            "title": "startPoint",
+            "type": "string"
+          },
+          "project": {
+            "description": "The project id",
+            "title": "project",
+            "type": "string"
+          },
+          "branch": {
+            "description": "The name of the new branch",
+            "title": "branch",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "branch"
+        ]
+      },
+      "name": "ProjectGitCreateBranch",
+      "description": "This reactor creates and checks out a new local branch in a project's git repository",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "ProjectGitCreateBranch",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Project Git Create Branch"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "ProjectGitStage_Arguments",
+        "properties": {
+          "paths": {
+            "description": "The repo-relative file paths to stage or unstage",
+            "title": "paths",
+            "type": "string"
+          },
+          "project": {
+            "description": "The project id",
+            "title": "project",
+            "type": "string"
+          },
+          "action": {
+            "description": "STAGE or UNSTAGE",
+            "title": "action",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "paths",
+          "action"
+        ]
+      },
+      "name": "ProjectGitStage",
+      "description": "This reactor stages or unstages files in a project's git repository and returns the refreshed status",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "ProjectGitStage",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Project Git Stage"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "ProjectGitMerge_Arguments",
+        "properties": {
+          "fastForwardOnly": {
+            "description": "Optional; when true the merge only succeeds if it can fast-forward, leaving history linear",
+            "title": "fastForwardOnly",
+            "type": "string"
+          },
+          "project": {
+            "description": "The project id",
+            "title": "project",
+            "type": "string"
+          },
+          "message": {
+            "description": "Optional commit message for the merge commit",
+            "title": "message",
+            "type": "string"
+          },
+          "branch": {
+            "description": "The name of the branch to merge in",
+            "title": "branch",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "branch"
+        ]
+      },
+      "name": "ProjectGitMerge",
+      "description": "This reactor merges a local branch into the currently checked-out branch of a project's git repository. Conflicts are reported rather than resolved: the working tree is left conflicted and nothing is deleted.",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "ProjectGitMerge",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Project Git Merge"
+    }
+  ]
+}

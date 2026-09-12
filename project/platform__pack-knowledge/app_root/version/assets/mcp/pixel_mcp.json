@@ -1,0 +1,208 @@
+{
+  "tools": [
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "VectorDatabaseQuery_Arguments",
+        "properties": {
+          "paramValues": {
+            "description": "Param Options depend on the engine implementation\n\t\t\t\t\tFAISS:\n\t\t\t\t\t\tcolumnsToReturn\t-\t(OPTIONAL) A list of column names in the data you want returned in the response\n\t\t\t\t\t\treturnThreshold\t-\t(OPTIONAL) The minimum threshold every response should be under",
+            "title": "paramValues",
+            "type": "object"
+          },
+          "metaFilters": {
+            "description": "Optional filters to apply on the document metadata before returning results",
+            "title": "metaFilters",
+            "type": "object"
+          },
+          "engine": {
+            "description": "The vector database engine ID to query.",
+            "title": "engine",
+            "type": "string"
+          },
+          "limit": {
+            "description": "The maximum number of similar documents to return. Defaults to 5 if not specified",
+            "title": "limit",
+            "type": "integer"
+          },
+          "filters": {
+            "description": "Optional filters to apply on the document content before returning results",
+            "title": "filters",
+            "type": "object"
+          },
+          "command": {
+            "description": "The search query text to find similar documents for",
+            "title": "command",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine",
+          "command"
+        ]
+      },
+      "name": "VectorDatabaseQuery",
+      "description": "Performs a nearest neighbor search in a vector database. Takes a search query, converts it to an embedding, and returns the most similar documents from the vector database based on vector similarity. Supports optional filtering on document content and metadata.",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "VectorDatabaseQuery",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Vector Database Query"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "ListDocumentsInVectorDatabase_Arguments",
+        "properties": {
+          "paramValues": {
+            "description": "Optional engine-specific parameters (for example index/collection selectors when supported).",
+            "title": "paramValues",
+            "type": "object"
+          },
+          "engine": {
+            "description": "The vector database engine ID to list document sources from.",
+            "title": "engine",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine"
+        ]
+      },
+      "name": "ListDocumentsInVectorDatabase",
+      "description": "Get the unique list of `Source` values that have been uploaded into this vector database. Typically `Source` represents uploaded files, but with custom chunking it may represent values that were never uploaded as standalone files.",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "ListDocumentsInVectorDatabase",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "List Documents In Vector Database"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "Embeddings_Arguments",
+        "properties": {
+          "paramValues": {
+            "description": "Map containing the param name to param values",
+            "title": "paramValues",
+            "type": "object"
+          },
+          "engine": {
+            "description": "Id/Name of the engine",
+            "title": "engine",
+            "type": "string"
+          },
+          "values": {
+            "description": "Specify the string value(s) serving as input text, from which you aim to generate embeddings vector(s).",
+            "title": "values",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine",
+          "values"
+        ]
+      },
+      "name": "Embeddings",
+      "description": "This reactor is used to interact with Embedding Model Engines. If the model does not support embeddings it will return \"This model does not support embeddings.\"",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "Embeddings",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Embeddings"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "CreateEmbeddingsFromDocuments_Arguments",
+        "properties": {
+          "paramValues": {
+            "description": "Param Options depend on the engine implementation\n\t\t\t\t\tFAISS:\n\t\t\t\t\t\tchunkUnit\t-\t(OPTIONAL) The unit that detemines how to measures the length of given chunks. Options are \"tokens\" or \"characters\".\n\t\t\t\t\t\tcolumnsToIndex\t-\t(OPTIONAL) A list of column names in the data you want to create the embeddings from\n\t\t\t\t\t\tcolumnsToRemove\t-\t(OPTIONAL) A list of column names in the data that you dont want to store in the database\n\t\t\t\t\t\tcontentLength\t-\t(OPTIONAL) The content length represents the upper limit of tokens within a chunk, as determined by the embedder's tokenizer.\n\t\t\t\t\t\tcontentOverlap\t-\t(OPTIONAL) The number of tokens from prior chunks that are carried over into the current chunk when processing content.\n\t\t\t\t\t\textractionMethod\t-\t(OPTIONAL) The name of the extraction method used to pull data from PDF(s). Options are \"fitz\" or \"default\".\n\t\t\t\t\t\tkeywordSearchParam\t-\t(OPTIONAL) Create keywords from the extracted chunks and use them to when to create embeddings.\n\t\t\t\t\t\tcustomDocumentProcessor\t-\t(OPTIONAL) Boolean flag to determine whether a custom function is being used to process a document\n\t\t\t\t\t\tcustomDocumentProcessorFunctionID\t-\t(OPTIONAL) Indicates the function ID used to custom process a document",
+            "title": "paramValues",
+            "type": "object"
+          },
+          "engine": {
+            "description": "The vector database engine ID to add embeddings into.",
+            "title": "engine",
+            "type": "string"
+          },
+          "filePaths": {
+            "description": "The list of file paths to process. Can include pdf, word, ppt, txt files or zip archives. Paths are resolved relative to the selected `space` (or current insight when `space` is omitted).",
+            "title": "filePaths",
+            "type": "array"
+          },
+          "space": {
+            "description": "Optional space used to resolve relative file paths. When omitted, files are resolved from the current insight/room space. Pass a project/app UUID to resolve from that app/project folder, or pass `user` for user space.",
+            "title": "space",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine",
+          "filePaths"
+        ]
+      },
+      "name": "CreateEmbeddingsFromDocuments",
+      "description": "Creates embeddings from documents and adds them to a vector database. This reactor processes files (pdf, word, ppt, txt, or zip archives containing these files) and stores their embeddings in the specified vector database engine. Files can be located in the insight or project space.",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "CreateEmbeddingsFromDocuments",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Create Embeddings From Documents"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "RemoveDocumentFromVectorDatabase_Arguments",
+        "properties": {
+          "paramValues": {
+            "description": "Optional engine-specific parameters (for example index/collection selectors when supported).",
+            "title": "paramValues",
+            "type": "object"
+          },
+          "engine": {
+            "description": "The vector database engine ID to remove documents from.",
+            "title": "engine",
+            "type": "string"
+          },
+          "fileNames": {
+            "description": "The list of source identifiers to remove from the vector database (typically document file names).",
+            "title": "fileNames",
+            "type": "array"
+          }
+        },
+        "required": [
+          "engine",
+          "fileNames"
+        ]
+      },
+      "name": "RemoveDocumentFromVectorDatabase",
+      "description": "Removes documents from a vector database. Deletes the specified files and their associated embeddings from the vector database. The file names should match the source names that were used when the documents were added.",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "RemoveDocumentFromVectorDatabase",
+        "SMSS_MCP_EXECUTION": "ask"
+      },
+      "title": "Remove Document From Vector Database"
+    }
+  ]
+}

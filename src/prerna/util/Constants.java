@@ -1113,6 +1113,21 @@ public class Constants {
 	public static final String MCP_APP_FILESYSTEM = "app-filesystem";
 	public static final String MCP_ROOM_FILESYSTEM = "room-filesystem";
 
+	// system (platform) capability pack names
+	//
+	// A pack is a curated bundle of reactors exposed to an agent as tools, shipped as
+	// a SKILL-type project so that SkillMCP layers its SKILL.md guidance on top of the
+	// generated pixel_mcp.json toolbox. Cataloged as MCPs so they appear in the toolbox
+	// picker, but deliberately kept out of SYSTEM_AGENT_MCPS: a pack grants real
+	// capability and is opted into per room rather than attached to every agent.
+	public static final String PACK_DATA = "pack-data";
+	public static final String PACK_KNOWLEDGE = "pack-knowledge";
+	public static final String PACK_FRAMES = "pack-frames";
+	public static final String PACK_GIT = "pack-git";
+	public static final String PACK_PUBLISH = "pack-publish";
+	public static final String PACK_STORAGE = "pack-storage";
+	public static final String PACK_BROWSER = "pack-browser";
+
 	// system (platform) agent (workspace) names
 	public static final String AGENT_APP_BUILDER = "app-builder";
 }

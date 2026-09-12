@@ -1,0 +1,250 @@
+{
+  "tools": [
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "FileRead_Arguments",
+        "properties": {
+          "sheetName": {
+            "description": "The excel sheet name. Only valid for excel files",
+            "title": "sheetName",
+            "type": "string"
+          },
+          "sheetRange": {
+            "description": "The excel sheet range. Only valid for excel files",
+            "title": "sheetRange",
+            "type": "string"
+          },
+          "dataTypeMap": {
+            "description": "Map of column name to the column data types",
+            "title": "dataTypeMap",
+            "type": "string"
+          },
+          "delimiter": {
+            "description": "Delimiter to be used",
+            "title": "delimiter",
+            "type": "string"
+          },
+          "filePath": {
+            "description": "Relative file path location",
+            "title": "filePath",
+            "type": "string"
+          },
+          "newHeaders": {
+            "description": "New header names for a file",
+            "title": "newHeaders",
+            "type": "string"
+          },
+          "space": {
+            "description": "This is an optional field to determine the space in which the relative file path exists. When this parameter is not provided, the space is assumed to be the current insight (when the insight is attached to a room it will be the room space). If an UUID is provided, it will be treated as a project id and use the project's directory structure. If the key \"user\" is provided it will be the logged in user's space.",
+            "title": "space",
+            "type": "string"
+          },
+          "additionalDataTypes": {
+            "description": "Additional data types defining specific formats",
+            "title": "additionalDataTypes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filePath",
+          "space",
+          "sheetName",
+          "sheetRange",
+          "dataTypeMap",
+          "delimiter",
+          "newHeaders",
+          "additionalDataTypes"
+        ]
+      },
+      "name": "FileRead",
+      "description": "No description present",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "FileRead",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "File Read"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "CreateFrame_Arguments",
+        "properties": {
+          "frameType": {
+            "description": "Type of frame to generate - grid (sql based frame), graph (frame based on tinkerpop), r (data sits within r, must have r installed to use), native (leverages the database to execute queries)",
+            "title": "frameType",
+            "type": "string"
+          },
+          "alias": {
+            "description": "An alias to assign for an operation or output - use .as([\"aliasName\"])",
+            "title": "alias",
+            "type": "string"
+          },
+          "override": {
+            "description": "Indicates if the current frame should be overridden; default value of true",
+            "title": "override",
+            "type": "string"
+          }
+        },
+        "required": [
+          "frameType",
+          "override",
+          "alias"
+        ]
+      },
+      "name": "CreateFrame",
+      "description": "No description present",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "CreateFrame",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Create Frame"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "Import_Arguments",
+        "properties": {
+          "qs": {
+            "description": "QueryStruct object that contains selectors, filters, and joins",
+            "title": "qs",
+            "type": "string"
+          },
+          "frame": {
+            "description": "The frame",
+            "title": "frame",
+            "type": "string"
+          }
+        },
+        "required": [
+          "qs",
+          "frame"
+        ]
+      },
+      "name": "Import",
+      "description": "No description present",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "Import",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Import"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "FrameHeaders_Arguments",
+        "properties": {
+          "headerTypes": {
+            "description": "Indicates header data types to be returned",
+            "title": "headerTypes",
+            "type": "string"
+          },
+          "reset": {
+            "description": "Boolean to tell the UI to reset the frame headers currently exposed",
+            "title": "reset",
+            "type": "string"
+          },
+          "frame": {
+            "description": "The frame",
+            "title": "frame",
+            "type": "string"
+          }
+        },
+        "required": [
+          "frame",
+          "headerTypes",
+          "reset"
+        ]
+      },
+      "name": "FrameHeaders",
+      "description": "No description present",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "FrameHeaders",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Frame Headers"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "FrameType_Arguments",
+        "properties": {
+          "frame": {
+            "description": "The frame",
+            "title": "frame",
+            "type": "string"
+          }
+        },
+        "required": [
+          "frame"
+        ]
+      },
+      "name": "FrameType",
+      "description": "No description present",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "FrameType",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Frame Type"
+    },
+    {
+      "inputSchema": {
+        "type": "object",
+        "title": "Collect_Arguments",
+        "properties": {
+          "task": {
+            "description": "Task object (can retrieve the object by using Task(taskId) where taskId is the unique id for the task)",
+            "title": "task",
+            "type": "string"
+          },
+          "meta": {
+            "description": "Boolean indication (true or false) of whether to retrieve metadata",
+            "title": "meta",
+            "type": "string"
+          },
+          "limit": {
+            "description": "The number to collect",
+            "title": "limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "task",
+          "limit",
+          "meta"
+        ]
+      },
+      "name": "Collect",
+      "description": "No description present",
+      "_meta": {
+        "SMSS_MCP_UI": {
+          "displayLocation": "sidebar"
+        },
+        "SMSS_MCP_GENERATOR": "MakePixelMCP",
+        "SMSS_FUNCTION_NAME": "Collect",
+        "SMSS_MCP_EXECUTION": "auto"
+      },
+      "title": "Collect"
+    }
+  ]
+}

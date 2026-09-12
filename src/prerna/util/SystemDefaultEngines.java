@@ -65,14 +65,18 @@ public class SystemDefaultEngines {
 	 */
 	private static final List<String> SYSTEM_MCPS = List.of(Constants.MCP_NODE_BUILDER, Constants.MCP_DATABASE_MAKER,
 			Constants.MCP_REACTOR_HELP, Constants.MCP_BROWSER_AUTOMATION, Constants.MCP_APP_FILESYSTEM,
-			Constants.MCP_ROOM_FILESYSTEM);
+			Constants.MCP_ROOM_FILESYSTEM, Constants.PACK_DATA, Constants.PACK_KNOWLEDGE, Constants.PACK_FRAMES,
+			Constants.PACK_GIT, Constants.PACK_PUBLISH, Constants.PACK_STORAGE, Constants.PACK_BROWSER);
 
 	/**
 	 * Subset of {@link #SYSTEM_MCPS} seeded onto system agent workspaces. This is
 	 * deliberately narrower than the cataloged list: UI-driven MCPs (whose tools
 	 * open a sidebar app and wait on a user) are not useful to a headless agent, so
 	 * they are cataloged and invokable without being attached to every system
-	 * agent.
+	 * agent. The {@code pack-*} capability packs are excluded for a different
+	 * reason - each one grants an agent real reach (running SQL, writing to cloud
+	 * storage, publishing), so it is opted into per room rather than granted to
+	 * every agent by default.
 	 */
 	private static final List<String> SYSTEM_AGENT_MCPS = List.of(Constants.MCP_NODE_BUILDER,
 			Constants.MCP_DATABASE_MAKER, Constants.MCP_REACTOR_HELP);
