@@ -769,6 +769,8 @@ public class Constants {
 	// OFF / FAKECHROOT / NAMESPACE / SECCOMP_ONLY (legacy NSJAIL is accepted)
 	public static final String SANDBOX_MODE = "SANDBOX_MODE";
 	public static final String SANDBOX_IO_DIR = "SANDBOX_IO_DIR";
+	// Colon/semicolon-separated executable directories exposed inside sandboxes
+	public static final String SANDBOX_PATH = "SANDBOX_PATH";
 
 	// which type of R connection to use
 	public static final String USE_R = "USE_R";
@@ -997,7 +999,7 @@ public class Constants {
 	// starting process for r/py
 	public static final String JAVA_HOME = "JAVA_HOME";
 	public static final String TCP_WORKER = "TCP_WORKER";
-	public static final String ULIMIT_R_MEM_LIMIT = "ULIMIT_R_MEM_LIMIT";
+	public static final String ULIMIT_PROCESS = "ULIMIT_PROCESS";
 
 	public static final String WHITE_LIST_DOMAINS = "WHITE_LIST_DOMAINS";
 
