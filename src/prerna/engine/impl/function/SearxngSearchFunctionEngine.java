@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -58,7 +59,7 @@ import prerna.util.Utility;
  * <p>
  * SearXNG is a self-hosted metasearch engine: it queries other engines and returns
  * the aggregate, so it needs no API key and no account. That is the point of
- * supporting it — an organisation can give agents web search without sending every
+ * supporting it - an organisation can give agents web search without sending every
  * query to a commercial provider, and without egress beyond a host it controls.
  *
  * <h3>Why a dedicated engine rather than a generic REST one</h3>
@@ -71,24 +72,24 @@ import prerna.util.Utility;
  * silently get HTML back when it forgot.
  *
  * <p>
- * More importantly, search is already a first-class engine kind here —
- * {@link BraveSearchFunctionEngine} and {@link BingSearchFunctionEngine} — with a
+ * More importantly, search is already a first-class engine kind here -
+ * {@link BraveSearchFunctionEngine} and {@link BingSearchFunctionEngine} - with a
  * settled result shape of {@code {query, results:[{title, url, snippet}]}}. Matching
  * that shape means a tool, prompt or downstream consumer written against Brave works
  * against a self-hosted SearXNG with no changes.
  *
  * <h3>SMSS properties</h3>
  * <ul>
- * <li>{@code ENDPOINT} — required, e.g. {@code http://searxng.internal:8282}. The
+ * <li>{@code ENDPOINT} - required, e.g. {@code http://searxng.internal:8282}. The
  * {@code /search} path is appended.</li>
- * <li>{@code COUNT} — default number of results to return (SearXNG pages rather than
+ * <li>{@code COUNT} - default number of results to return (SearXNG pages rather than
  * taking a count, so this trims client-side).</li>
- * <li>{@code SNIPPET_LENGTH} — characters of each result's content to keep.</li>
- * <li>{@code LANGUAGE} — SearXNG language filter, e.g. {@code en-US}, default
+ * <li>{@code SNIPPET_LENGTH} - characters of each result's content to keep.</li>
+ * <li>{@code LANGUAGE} - SearXNG language filter, e.g. {@code en-US}, default
  * {@code all}.</li>
- * <li>{@code SAFE_SEARCH} — 0 off, 1 moderate, 2 strict.</li>
- * <li>{@code ENGINES} — comma-separated upstream engines to restrict to.</li>
- * <li>{@code CATEGORIES} — comma-separated categories, e.g. {@code general,news}.</li>
+ * <li>{@code SAFE_SEARCH} - 0 off, 1 moderate, 2 strict.</li>
+ * <li>{@code ENGINES} - comma-separated upstream engines to restrict to.</li>
+ * <li>{@code CATEGORIES} - comma-separated categories, e.g. {@code general,news}.</li>
  * </ul>
  */
 public class SearxngSearchFunctionEngine extends AbstractFunctionEngine {
@@ -106,6 +107,7 @@ public class SearxngSearchFunctionEngine extends AbstractFunctionEngine {
 	private static final String QUERY_PARAM = "query";
 	private static final String LIMIT_PARAM = "limit";
 	private static final String PAGE_PARAM = "page";
+	private static final String LANGUAGE_PARAM = "language";
 
 	/**
 	 * SearXNG has no server-side result cap, but an unbounded list is a context-window
@@ -145,6 +147,66 @@ public class SearxngSearchFunctionEngine extends AbstractFunctionEngine {
 		this.safeSearch = StringUtils.trimToNull(smssProp.getProperty(SAFE_SEARCH_KEY));
 		this.engines = StringUtils.trimToNull(smssProp.getProperty(ENGINES_KEY));
 		this.categories = StringUtils.trimToNull(smssProp.getProperty(CATEGORIES_KEY));
+
+		// Describe what execute() understands. Anything the SMSS defined wins.
+		setDefaultFunctionMetadata();
+	}
+
+	/**
+	 * Fill in the function metadata the SMSS did not define, so the engine
+	 * describes itself the way every other native function engine does.
+	 *
+	 * <p>
+	 * This is not cosmetic. {@code MCPFunctionEngineUtility.applyFunctionEngineDefinition}
+	 * returns early when {@link #getParameters()} is empty, leaving the generic
+	 * {@code ExecuteFunctionEngine} tool - named for the reactor, described as
+	 * "OCR or document extraction, audio transcription, ..." and taking an opaque
+	 * map. A model handed that cannot tell this engine searches the web: it reads
+	 * the description, sees no search tool, and answers from memory instead of
+	 * calling anything. Declaring the parameters is what lets both MCP generators
+	 * present this as {@code web_search} taking a {@code query}.
+	 *
+	 * <p>
+	 * Descriptions carry the values this engine was opened with, so a caller can
+	 * tell what it gets by leaving a parameter out.
+	 */
+	private void setDefaultFunctionMetadata() {
+		if (StringUtils.isBlank(this.functionName)) {
+			this.functionName = "web_search";
+		}
+
+		if (StringUtils.isBlank(this.functionDescription)) {
+			this.functionDescription = """
+					Search the web through a self-hosted SearXNG instance and return the top results as a \
+					list of {title, url, snippet}, plus any search suggestions. Use this for current events, \
+					recent releases, prices, documentation, or anything else outside what the model already \
+					knows. Read the snippets to answer and cite the urls used.\
+					""";
+		}
+
+		if (this.parameters == null || this.parameters.isEmpty()) {
+			List<FunctionParameter> defaultParameters = new ArrayList<>();
+			defaultParameters.add(new FunctionParameter(QUERY_PARAM, "string", """
+					The search terms. Phrase this the way a person would type it into a search box rather \
+					than as a full sentence question. Pass it as plain text - this engine handles the \
+					URL encoding, so spaces and punctuation are fine.\
+					"""));
+			defaultParameters.add(new FunctionParameter(LIMIT_PARAM, "integer", """
+					Optional number of results to return, up to %d. Defaults to %d.\
+					""".formatted(MAX_COUNT, this.count)));
+			defaultParameters.add(new FunctionParameter(PAGE_PARAM, "integer", """
+					Optional page of results. Page 2 returns the results after the first page, so use this \
+					only when the first page did not answer the question.\
+					"""));
+			defaultParameters.add(new FunctionParameter(LANGUAGE_PARAM, "string", """
+					Optional language code to search in, ie en or de. Defaults to %s.\
+					""".formatted(this.language)));
+			this.parameters = defaultParameters;
+		}
+
+		if (this.requiredParameters == null || this.requiredParameters.isEmpty()) {
+			this.requiredParameters = new ArrayList<>(Arrays.asList(QUERY_PARAM));
+		}
 	}
 
 	@Override
@@ -194,7 +256,7 @@ public class SearxngSearchFunctionEngine extends AbstractFunctionEngine {
 			queryParams.put("pageno", Integer.toString(runTimePage));
 		}
 
-		String runTimeLanguage = getParameterValue(parameterValues, "language", this.language);
+		String runTimeLanguage = getParameterValue(parameterValues, LANGUAGE_PARAM, this.language);
 		if (StringUtils.isNotEmpty(runTimeLanguage)) {
 			queryParams.put("language", runTimeLanguage);
 		}
@@ -214,7 +276,7 @@ public class SearxngSearchFunctionEngine extends AbstractFunctionEngine {
 			if (!first) {
 				url.append('&');
 			}
-			// Encoded, unlike RESTFunctionEngine — a search query is the one input
+			// Encoded, unlike RESTFunctionEngine - a search query is the one input
 			// guaranteed to contain spaces and punctuation.
 			url.append(entry.getKey()).append('=')
 					.append(URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8));
@@ -229,8 +291,8 @@ public class SearxngSearchFunctionEngine extends AbstractFunctionEngine {
 	 *
 	 * <p>
 	 * SearXNG returns one entry per upstream engine that matched, so the same page can
-	 * appear several times. Duplicates are collapsed by url, keeping the first — which
-	 * is the highest-scoring — because a model given the same result five times will
+	 * appear several times. Duplicates are collapsed by url, keeping the first - which
+	 * is the highest-scoring - because a model given the same result five times will
 	 * treat it as five pieces of evidence.
 	 */
 	private Map<String, Object> parseResponse(String query, String response, int limit) {
@@ -254,7 +316,7 @@ public class SearxngSearchFunctionEngine extends AbstractFunctionEngine {
 				result.put("url", itemUrl);
 				result.put("snippet", trimSnippet(item.optString("content", null)));
 				putIfPresent(result, "publishedDate", item.optString("publishedDate", null));
-				// Which upstream engines produced the hit — useful for judging a result
+				// Which upstream engines produced the hit - useful for judging a result
 				// and unique to a metasearch engine.
 				JSONArray engineList = item.optJSONArray("engines");
 				if (engineList != null && !engineList.isEmpty()) {
