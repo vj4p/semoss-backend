@@ -27,8 +27,10 @@
  *******************************************************************************/
 package prerna.reactor.agent;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
@@ -99,6 +101,25 @@ public final class AgentHarnessRegistry {
 	 */
 	public static IAgentHarness get(String name) {
 		return REGISTRY.get(name);
+	}
+
+	/**
+	 * Every registered harness, for callers that need to present the choice
+	 * rather than resolve one name.
+	 *
+	 * <p>
+	 * The returned list is a snapshot and safe to iterate. Synchronizing on the
+	 * map is required rather than defensive: {@link Collections#synchronizedMap}
+	 * guards individual operations but not iteration, and {@link #register} can
+	 * be called from application startup on another thread, so copying the values
+	 * unsynchronized risks a {@link java.util.ConcurrentModificationException}.
+	 *
+	 * @return a snapshot of the registered harnesses, in no particular order
+	 */
+	public static List<IAgentHarness> all() {
+		synchronized (REGISTRY) {
+			return new ArrayList<>(REGISTRY.values());
+		}
 	}
 
 	/**

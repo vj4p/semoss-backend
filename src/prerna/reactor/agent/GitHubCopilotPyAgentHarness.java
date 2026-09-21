@@ -70,6 +70,33 @@ public class GitHubCopilotPyAgentHarness implements IAgentHarness {
 	}
 
 	@Override
+	public String getDisplayName() {
+		return "GitHub Copilot";
+	}
+
+	@Override
+	public String getDescription() {
+		return "Spawns a Python sidecar wrapping the GitHub Copilot agent, which brings its own "
+				+ "toolset. The room's MCP toolboxes do not apply.";
+	}
+
+	@Override
+	public ToolSource getToolSource() {
+		return ToolSource.HARNESS_NATIVE;
+	}
+
+	/**
+	 * Not offered in pickers. This preserves the behaviour the UIs already had -
+	 * both the client's agent form and the harness room options listed only
+	 * "semoss" and "claude_code" - but states it once here instead of in each
+	 * frontend's own hardcoded list. Still runnable by explicit harnessType.
+	 */
+	@Override
+	public boolean isSelectable() {
+		return false;
+	}
+
+	@Override
 	public AgentHarnessResult execute(AgentRunContext ctx) throws Exception {
 		Room                room  = ctx.getRoom();
 		Map<String, Object> params = ctx.getParamMap();

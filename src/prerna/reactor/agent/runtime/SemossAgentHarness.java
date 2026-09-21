@@ -129,6 +129,23 @@ public class SemossAgentHarness implements IAgentHarness {
 	}
 
 	@Override
+	public String getDisplayName() {
+		return "SEMOSS";
+	}
+
+	@Override
+	public String getDescription() {
+		return "Runs on the platform itself. Its tools are SEMOSS reactors, so it can query engines, "
+				+ "build frames and drive projects directly, and what it can reach is whatever MCP "
+				+ "toolboxes and capability packs the room has attached.";
+	}
+
+	@Override
+	public ToolSource getToolSource() {
+		return ToolSource.PLATFORM;
+	}
+
+	@Override
 	public boolean supportsMediaInput() {
 		return true;
 	}

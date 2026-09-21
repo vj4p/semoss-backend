@@ -58,4 +58,73 @@ public interface IAgentHarness {
      * @throws Exception on unrecoverable errors (callers should wrap and surface to the user)
      */
     AgentHarnessResult execute(AgentRunContext ctx) throws Exception;
+
+    /**
+     * Where this harness's tools come from. A caller switching harnesses needs
+     * this: the available tools change with the harness, and without saying so
+     * the capability change looks like a defect rather than a consequence.
+     */
+    enum ToolSource {
+        /**
+         * Tools are platform reactors, executed in-process through
+         * {@code HarnessToolExecutor} and selected via MCP / capability packs.
+         */
+        PLATFORM,
+        /**
+         * The harness spawns its own runtime, which brings its own tools. The
+         * platform's MCP selection does not apply.
+         */
+        HARNESS_NATIVE,
+        /** Not declared by the harness. */
+        UNSPECIFIED
+    }
+
+    /**
+     * Human-readable label for pickers and status lines.
+     *
+     * @return the display label; defaults to {@link #getName()} so it is never
+     *         null and an undeclared harness still renders.
+     */
+    default String getDisplayName() {
+        return getName();
+    }
+
+    /**
+     * One sentence on what this harness is, for a picker that has to explain
+     * the choice rather than just list keys.
+     *
+     * @return the description, or an empty string when not declared
+     */
+    default String getDescription() {
+        return "";
+    }
+
+    /**
+     * @return where this harness's tools come from; {@link ToolSource#UNSPECIFIED}
+     *         when not declared
+     */
+    default ToolSource getToolSource() {
+        return ToolSource.UNSPECIFIED;
+    }
+
+    /**
+     * Whether a harness picker should offer this harness by default.
+     *
+     * <p>
+     * A registered harness is not automatically one a user should be handed: it
+     * may be reachable by explicit request while still not belonging in a
+     * picker. Declaring that here keeps the decision in one place - each client
+     * that filtered its own list is how the same list came to be hardcoded in
+     * several packages, each drifting separately.
+     *
+     * <p>
+     * Selectability is advisory, not authorization. It shapes what a picker
+     * offers; it does not stop {@code RunAgent} honouring an explicit
+     * harnessType, so existing callers keep working.
+     *
+     * @return true when the harness should appear in pickers; defaults to true
+     */
+    default boolean isSelectable() {
+        return true;
+    }
 }

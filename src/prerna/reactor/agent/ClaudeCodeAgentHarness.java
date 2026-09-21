@@ -73,6 +73,23 @@ public class ClaudeCodeAgentHarness implements IAgentHarness {
     }
 
     @Override
+    public String getDisplayName() {
+        return "Claude Code";
+    }
+
+    @Override
+    public String getDescription() {
+        return "Spawns a sandboxed Claude Code process with its own file, edit and shell tools. "
+                + "Best for writing and refactoring code in a project. It brings its own toolset, "
+                + "so the room's MCP toolboxes do not apply.";
+    }
+
+    @Override
+    public ToolSource getToolSource() {
+        return ToolSource.HARNESS_NATIVE;
+    }
+
+    @Override
     public AgentHarnessResult execute(AgentRunContext ctx) throws Exception {
         Room                room     = ctx.getRoom();
         Map<String, Object> params   = ctx.getParamMap();
