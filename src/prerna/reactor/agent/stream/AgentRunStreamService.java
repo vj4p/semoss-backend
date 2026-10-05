@@ -36,11 +36,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -48,7 +51,32 @@ import org.apache.logging.log4j.Logger;
 /**
  * In-memory item-event stream sessions for canonical agent runs, keyed by
  * runId. Sessions buffer canonical item.started / item.updated / item.completed
- * events until a single consumer drains them.
+ * events until a single consumer drains them ({@link #drain}), and also push
+ * them live to any {@link #subscribe}d listener as they are emitted.
+ *
+ * <h3>Poll and push are independent taps on the same event, not two queues</h3>
+ * {@code drain} and {@code subscribe} both react to {@link #emitLocked}, but
+ * neither is the other's buffer: {@code drain} empties the deque this session
+ * keeps for {@code pollAgentRun}; a subscriber is handed the same event object
+ * directly, and keeps nothing of its own. So a run may be polled, pushed to a
+ * live subscriber, or both, without either starving the other. The documented
+ * poll endpoint keeps working exactly as before — this is additive.
+ *
+ * <h3>Replay without a gap or a duplicate</h3>
+ * {@link #subscribe} takes {@code afterSequence} and must not drop an event
+ * emitted between "read the backlog" and "start listening live." It holds
+ * {@link Session#lock} across both: collecting every buffered event whose
+ * sequence is greater than {@code afterSequence}, and registering the
+ * listener, in one critical section. {@link #emitLocked} assigns a event's
+ * sequence number under that same lock, so nothing can be emitted in the gap
+ * — the backlog and the live feed cannot overlap or skip.
+ *
+ * <h3>Delivery runs off the agent's own thread</h3>
+ * A subscriber callback is usually a network write (an SSE frame). Calling it
+ * synchronously from {@link #emitLocked} would make a slow or stalled HTTP
+ * client throttle the agent thread holding {@link Session#lock} — every other
+ * caller touching that session's events blocks behind it. {@link #DISPATCH_EXECUTOR}
+ * decouples the two: the lock is released before a listener ever runs.
  */
 public final class AgentRunStreamService {
 
@@ -65,6 +93,20 @@ public final class AgentRunStreamService {
 	private static final AgentRunStreamService INSTANCE = new AgentRunStreamService();
 
 	private final Map<String, Session> sessions = new ConcurrentHashMap<>();
+
+	/**
+	 * Delivers events to live subscribers off the thread that emits them. One
+	 * slow network write on an SSE connection must not stall every other
+	 * caller touching the same run's lock; the pool is small and unbounded on
+	 * queue because listener callbacks are expected to be a fast handoff into
+	 * an async HTTP response (see A2AResource's SseEventSink.send, which is
+	 * itself non-blocking).
+	 */
+	private final ExecutorService dispatchExecutor = Executors.newFixedThreadPool(4, r -> {
+		Thread t = new Thread(r, "agent-run-stream-dispatch");
+		t.setDaemon(true);
+		return t;
+	});
 
 	private AgentRunStreamService() {
 		ScheduledExecutorService sweeper = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -111,9 +153,29 @@ public final class AgentRunStreamService {
 		private final StringBuilder reasoningText = new StringBuilder();
 		private final Set<String> completedSubagents = new HashSet<>();
 		private volatile Long expiresAtMs = null;
+		private final CopyOnWriteArrayList<Consumer<Map<String, Object>>> listeners = new CopyOnWriteArrayList<>();
 
 		private Session(String runId) {
 			this.runId = runId;
+		}
+	}
+
+	/**
+	 * Handle for a live subscription; {@link #close} removes the listener so
+	 * a disconnected SSE client stops receiving dispatch work.
+	 */
+	public static final class Subscription implements AutoCloseable {
+		private final Session session;
+		private final Consumer<Map<String, Object>> listener;
+
+		private Subscription(Session session, Consumer<Map<String, Object>> listener) {
+			this.session = session;
+			this.listener = listener;
+		}
+
+		@Override
+		public void close() {
+			session.listeners.remove(listener);
 		}
 	}
 
@@ -307,6 +369,53 @@ public final class AgentRunStreamService {
 		}
 	}
 
+	/**
+	 * Subscribe to live item events for a run, replaying first every buffered
+	 * event with {@code sequence > afterSequence}. {@code onEvent} is invoked
+	 * off the emitting thread (see {@link #dispatchExecutor}); it must not
+	 * block indefinitely, and must tolerate being called after the run's
+	 * session has gone terminal (a few more events, then nothing further).
+	 *
+	 * <p>The returned {@link Subscription} must be closed when the caller
+	 * disconnects (e.g. the SSE client goes away), or the listener leaks for
+	 * the lifetime of the session.
+	 *
+	 * @return the subscription, or {@code null} if the run has no session
+	 *         (never registered, or already swept away).
+	 */
+	public Subscription subscribe(String runId, long afterSequence, Consumer<Map<String, Object>> onEvent) {
+		Session session = sessionFor(runId);
+		if (session == null || onEvent == null) {
+			return null;
+		}
+		session.lock.lock();
+		try {
+			List<Map<String, Object>> backlog = new ArrayList<>();
+			for (Map<String, Object> event : session.events) {
+				Object seq = event.get("sequence");
+				if (seq instanceof Long && (Long) seq > afterSequence) {
+					backlog.add(event);
+				}
+			}
+			session.listeners.add(onEvent);
+			Subscription subscription = new Subscription(session, onEvent);
+			for (Map<String, Object> event : backlog) {
+				dispatchExecutor.execute(() -> safeDeliver(onEvent, event));
+			}
+			return subscription;
+		} finally {
+			session.lock.unlock();
+		}
+	}
+
+	private void safeDeliver(Consumer<Map<String, Object>> listener, Map<String, Object> event) {
+		try {
+			listener.accept(event);
+		} catch (Exception e) {
+			logger.debug("AgentRunStreamService: live listener threw, dropping it", e);
+		}
+	}
+
 	public void markTerminal(String runId) {
 		Session session = sessionFor(runId);
 		if (session == null) {
@@ -425,6 +534,22 @@ public final class AgentRunStreamService {
 				logger.warn("AgentRunStreamService: event buffer overflow for runId={}; dropping oldest events",
 						session.runId);
 			}
+		}
+		dispatchToListeners(session, event);
+	}
+
+	/**
+	 * Hands the event to each live listener on {@link #dispatchExecutor},
+	 * never on the caller's thread. Snapshotting {@code session.listeners}
+	 * (a CopyOnWriteArrayList) is cheap and safe to iterate even if a
+	 * subscriber attaches or detaches concurrently.
+	 */
+	private void dispatchToListeners(Session session, Map<String, Object> event) {
+		if (session.listeners.isEmpty()) {
+			return;
+		}
+		for (Consumer<Map<String, Object>> listener : session.listeners) {
+			dispatchExecutor.execute(() -> safeDeliver(listener, event));
 		}
 	}
 
