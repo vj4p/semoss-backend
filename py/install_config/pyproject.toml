@@ -21,7 +21,7 @@ dependencies = [
     "boto3>=1.43.95",
     "beautifulsoup4>=4.15.0",
     "chonky==0.1.7",
-    "claude-agent-sdk==0.2.153",
+    "claude-agent-sdk==0.2.164",
     "cryptography>=50.0.0",
     "github-copilot-sdk==0.3.0",
     "datasets==5.0.1",
