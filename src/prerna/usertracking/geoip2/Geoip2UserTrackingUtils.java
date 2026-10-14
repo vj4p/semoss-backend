@@ -108,7 +108,9 @@ public final class Geoip2UserTrackingUtils extends AbstractUserTrackingUtils {
 			utd = new UserTrackingDetails(ip, null, null, null, null, null);
 		} else {
 			try {
-				InetAddress inet = InetAddress.getByName(ip);
+				// behind a proxy chain X-Forwarded-For is "client, proxy1, ..." - the client is the first entry
+				String clientIp = ip == null ? null : ip.split(",")[0].trim();
+				InetAddress inet = InetAddress.getByName(clientIp);
 				CityResponse cr = reader.tryCity(inet).orElse(NULL_CR);
 				utd = this.cityResponseToUserTrackingDetails(cr, ip);
 			} catch (IOException | GeoIp2Exception e) {
