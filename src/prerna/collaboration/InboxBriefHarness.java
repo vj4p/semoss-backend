@@ -52,6 +52,14 @@ public final class InboxBriefHarness implements IAgentHarness {
 	@Override
 	public String getName() { return NAME; }
 
+	/**
+	 * Internal to the daily inbox brief routine (WorkInboxRoutine), which names it explicitly in its
+	 * RunAgent call. It has no tools and a fixed prompt, so it is not a loop a user can chat with and
+	 * does not belong in an agent-engine picker. Still runnable by explicit harnessType.
+	 */
+	@Override
+	public boolean isSelectable() { return false; }
+
 	@Override
 	public AgentHarnessResult execute(AgentRunContext ctx) {
 		InputMessage input = InputMessage.builder(ctx.getRoom()).withSystemPrompt(INSTRUCTIONS)
