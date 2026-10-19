@@ -52,6 +52,7 @@ import prerna.engine.impl.model.message.ToolResultMessagePart;
 import prerna.engine.impl.model.message.ToolResultPart;
 import prerna.om.Insight;
 import prerna.reactor.AbstractReactor;
+import prerna.reactor.agent.ClaudeCodeApprovals;
 import prerna.reactor.agent.run.AgentRunActionStore;
 import prerna.reactor.agent.run.AgentRunRecord;
 import prerna.reactor.agent.run.AgentRunService;
@@ -133,6 +134,13 @@ public final class AgentToolDecisionHandler {
 			throw new IllegalStateException("Agent HITL action has no durable owner actionId=" + actionId);
 		}
 		String normalizedDecision = normalizeDecision(decision);
+
+		// A harness that runs its own tools (Claude Code) cannot have its tool executed here: record the decision and
+		// resume, and the harness applies it.
+		if (ClaudeCodeApprovals.isHarnessNative(pendingAction)) {
+			return handleHarnessNativeDecision(pendingAction, actionId, normalizedDecision, passthroughResult,
+					callerParams, actionOwnerUserId, automationAuthorized);
+		}
 
 		// derive the run context from the row, validating caller-supplied values
 		String runId = resolveFromRow(CTX_RUN_ID, contextValue(callerContext, CTX_RUN_ID), pendingAction);
@@ -295,6 +303,63 @@ public final class AgentToolDecisionHandler {
 			item.put("error", boundedError);
 		}
 		AgentRunStreamService.get().publishToolCompleted(runId, item);
+	}
+
+	/**
+	 * Decision on an action whose tool the harness runs itself (Claude Code). Nothing is executed and nothing is
+	 * written to the room: the decision is stored, and once every paused action in the run is decided the run is
+	 * resumed, where the harness tells the agent and allows an approved call once.
+	 */
+	private String handleHarnessNativeDecision(Map<String, Object> pendingAction, String actionId,
+			String normalizedDecision, String passthroughResult, Map<String, Object> callerParams, String userId,
+			boolean automationAuthorized) {
+		if (automationAuthorized) {
+			throw new IllegalStateException("Automation cannot decide a Claude Code approval actionId=" + actionId);
+		}
+		String runId = ValueUtils.trimToNull(pendingAction.get(CTX_RUN_ID));
+		String toolName = ValueUtils.trimToNull(pendingAction.get("toolName"));
+		String toolCallId = ValueUtils.trimToNull(pendingAction.get(CTX_TOOL_CALL_ID));
+		if (isDecidedAction(pendingAction)) {
+			// retry or duplicate click: the first decision stands
+			String stored = ValueUtils.trimToNull(pendingAction.get("result"));
+			return stored != null ? stored : "Already decided.";
+		}
+
+		Map<String, Object> storedArgs = parseStoredMap(pendingAction.get("toolArgs"));
+		boolean argsChanged = callerParams != null && !callerParams.isEmpty()
+				&& (storedArgs == null || !storedArgs.equals(callerParams));
+		Object editedArgs = (DECISION_EDIT.equals(normalizedDecision) || argsChanged) ? callerParams : null;
+		String actionStatus = resolveActionStatus(normalizedDecision);
+		String result;
+		if (DECISION_REJECT.equals(normalizedDecision) || DECISION_RESPOND.equals(normalizedDecision)) {
+			result = ValueUtils.trimToNull(passthroughResult) != null ? passthroughResult.trim()
+					: "Tool call rejected by user.";
+		} else {
+			result = "Approved by user.";
+		}
+		boolean marked = AgentRunActionStore.markDecided(actionId, runId, userId, editedArgs, result, actionStatus,
+				ClaudeCodeApprovals.TOOL_STATUS_AWAITING_RESUME);
+		if (!marked) {
+			throw new IllegalStateException("Pending action was not updated for actionId=" + actionId);
+		}
+		if (DECISION_REJECT.equals(normalizedDecision) || DECISION_RESPOND.equals(normalizedDecision)) {
+			publishDecisionToolItem(runId, toolCallId, toolName, resolveDisplayTitle(pendingAction),
+					storedArgs != null ? storedArgs : new HashMap<>(), AgentStreamItems.TOOL_REJECTED, result, null);
+		}
+
+		if (AgentRunActionStore.allActionsDecided(runId)) {
+			if (!AgentRunStore.markResumed(runId, runId)) {
+				logger.info("AgentToolDecisionHandler: runId={} already resumed or terminal", runId);
+				return result;
+			}
+			AgentRunService.get().signalWorkerForResume(runId, this.insight);
+			logger.info("AgentToolDecisionHandler: resumed Claude Code runId={} after decision on toolCallId={}", runId,
+					toolCallId);
+		} else {
+			logger.info("AgentToolDecisionHandler: recorded decision for toolCallId={} runId={}, waiting for the rest",
+					toolCallId, runId);
+		}
+		return result;
 	}
 
 	/**

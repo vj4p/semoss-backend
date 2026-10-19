@@ -382,6 +382,28 @@ public final class AgentRunActionStore {
 	}
 
 	/**
+	 * Set only the execution status of an action, leaving the decision alone. Claude Code approvals use it to
+	 * mark a decision as already handed back to the harness.
+	 */
+	public static boolean markToolStatus(String actionId, String runId, String toolStatus) {
+		IRDBMSEngine db = SystemEngineRegistry.getModelInferenceLogsDb();
+		PreparedStatement ps = null;
+		try {
+			ps = db.getPreparedStatement("UPDATE AGENT_RUN_ACTION SET TOOL_STATUS = ? WHERE ACTION_ID = ? AND RUN_ID = ?");
+			ps.setString(1, toolStatus);
+			ps.setString(2, actionId);
+			ps.setString(3, runId);
+			int updated = ps.executeUpdate();
+			commitIfNeeded(ps);
+			return updated > 0;
+		} catch (Exception e) {
+			throw new IllegalStateException("Failed to update TOOL_STATUS for actionId=" + actionId, e);
+		} finally {
+			ConnectionUtils.closeAllConnectionsIfPooling(db, null, ps, null);
+		}
+	}
+
+	/**
 	 * Actions of one tool type assigned to a user, newest first; status is
 	 * optional.
 	 */

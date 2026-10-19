@@ -1,6 +1,6 @@
 from typing import Optional
 from uuid import uuid4
-import asyncio, os
+import asyncio, base64, json, os
 from pydantic import BaseModel, field_validator
 from claude_agent_sdk import (
     ClaudeAgentOptions,
@@ -10,8 +10,10 @@ from claude_agent_sdk import (
     PermissionMode,
     UserMessage,
     ResultMessage,
+    ToolUseBlock,
 )
 from smss_thread_local import get_smss_stream
+from .approval_policy import ApprovalGate, auto_allowed_tools, normalize_mode
 from .claude_code_utils import (
     make_assistant_event,
     make_result_event,
@@ -34,6 +36,30 @@ from ...utils import string_to_bool
 #     logger.debug(f"Claude-Code-stderr:: {line.rstrip()}")
 
 
+# What a run may use when the caller did not narrow it. "*" in allowed_tools means this same list.
+DEFAULT_TOOLS = [
+    "Skill",
+    "Bash",
+    "BashOutput",
+    "KillBash",
+    "Read",
+    "Write",
+    "Edit",
+    "MultiEdit",
+    "NotebookEdit",
+    "Glob",
+    "Grep",
+    "LS",
+    "WebSearch",
+    "WebFetch",
+    "TaskCreate",
+    "TaskUpdate",
+    "TaskGet",
+    "TaskList",
+    "Task",
+]
+
+
 class MCP(BaseModel):
     url: str
     name: str
@@ -46,6 +72,8 @@ class CCInitArgs(BaseModel):
     access_key: str
     secret_key: str
     permission_mode: PermissionMode | None = "acceptEdits"
+    # off | mutating | all. See approval_policy.py. "off" keeps the old bypassPermissions behaviour.
+    approval_mode: str = "off"
     agent_history_exists: bool = False
     base_url: Optional[str] = ""
     allowed_tools: Optional[list[str]] = None
@@ -73,6 +101,17 @@ class ClaudeCodeClient:
             self.configuration.room_id,
         )
 
+        self.approval_gate = ApprovalGate(self.configuration.approval_mode)
+        approval_mode = self.approval_gate.mode
+        if approval_mode == "off":
+            tools_to_allow = allowed_tools or list(DEFAULT_TOOLS)
+        else:
+            # Tools in allowed_tools are approved without asking can_use_tool, and "*" would cover all of them,
+            # so expand it and drop whatever the policy may gate.
+            explicit = [t for t in allowed_tools if t != "*"]
+            expanded = explicit + (list(DEFAULT_TOOLS) if (not allowed_tools or "*" in allowed_tools) else [])
+            tools_to_allow = auto_allowed_tools(approval_mode, expanded)
+
         sandbox_env = self.configuration.sandbox_env or {}
         claude_env = {
             "ANTHROPIC_BASE_URL": f"{self.configuration.base_url}",
@@ -96,7 +135,12 @@ class ClaudeCodeClient:
         self.agent_options = ClaudeAgentOptions(
             # stderr=_stderr_handler,
             thinking={"type": "enabled", "budget_tokens": 100000},
-            permission_mode="bypassPermissions",
+            permission_mode="bypassPermissions" if approval_mode == "off" else "default",
+            **(
+                {"can_use_tool": self.approval_gate.can_use_tool}
+                if approval_mode != "off"
+                else {}
+            ),
             max_turns=50,
             setting_sources=["project"],
             model=self.configuration.model,
@@ -112,28 +156,7 @@ class ClaudeCodeClient:
                 else self.configuration.room_id
             ),
             disallowed_tools=["AskUserQuestion"],
-            allowed_tools=allowed_tools
-            or [
-                "Skill",
-                "Bash",
-                "BashOutput",
-                "KillBash",
-                "Read",
-                "Write",
-                "Edit",
-                "MultiEdit",
-                "NotebookEdit",
-                "Glob",
-                "Grep",
-                "LS",
-                "WebSearch",
-                "WebFetch",
-                "TaskCreate",
-                "TaskUpdate",
-                "TaskGet",
-                "TaskList",
-                "Task",
-            ],
+            allowed_tools=tools_to_allow,
             mcp_servers=mcps,
             env=claude_env,
             **(
@@ -144,6 +167,21 @@ class ClaudeCodeClient:
         )
 
         self.sdk_client = ClaudeSDKClient(self.agent_options)
+
+    def set_decisions(self, decisions) -> None:
+        """Decisions the user made on the previous pause (a JSON string or a list); see approval_policy."""
+        if isinstance(decisions, str):
+            decisions = json.loads(decisions) if decisions.strip() else []
+        self.approval_gate.set_decisions(decisions)
+
+    def take_pending_approvals(self) -> str:
+        """
+        Calls the last query stopped on, as base64 of the JSON list [{toolCallId, toolName, toolArgs}] (an empty
+        list when none). Base64 because the value crosses the Python bridge as a string and quotes, angle brackets
+        and newlines in a command did not survive it.
+        """
+        payload = json.dumps(self.approval_gate.take_pending())
+        return base64.b64encode(payload.encode("utf-8")).decode("ascii")
 
     def query_cc(
         self, prompt: str, system_prompt: Optional[str] = None, **kwargs
@@ -173,23 +211,38 @@ class ClaudeCodeClient:
                 stream_type="content",
             )
 
+        # A completion must say which tool it finished: the stream replaces a tool item with its completion, and a
+        # completion with no name or arguments left the Code console with nothing to draw (it crashed).
+        tool_calls: dict = {}
+
         async with self.sdk_client as client:
             await client.query(prompt)
             async for message in client.receive_response():
                 # logger.info(f"Claude-Code-chunk:: {message}")
                 if isinstance(message, AssistantMessage):
                     for block in message.content:
+                        if isinstance(block, ToolUseBlock):
+                            tool_calls[block.id] = {
+                                "toolName": block.name,
+                                "arguments": block.input if isinstance(block.input, dict) else {},
+                            }
                         if isinstance(block, TextBlock):
                             print(f"Claude: {block.text}")
                             final_message += block.text
                     if smss_stream:
-                        event = make_assistant_event(message)
+                        event = self.approval_gate.hold_back_pending_calls(
+                            make_assistant_event(message)
+                        )
                         if event is not None:
                             smss_stream(event, stream_type="content")
                 elif isinstance(message, UserMessage):
                     if smss_stream:
                         event = make_tool_result_event(message)
-                        if event is not None:
+                        if event is not None and not self.approval_gate.should_hide_result(event):
+                            call = tool_calls.get((event.get("data") or {}).get("toolUseId"))
+                            if call:
+                                event["data"].setdefault("toolName", call["toolName"])
+                                event["data"].setdefault("arguments", call["arguments"])
                             smss_stream(event, stream_type="content")
                 elif isinstance(message, ResultMessage):
                     if smss_stream:

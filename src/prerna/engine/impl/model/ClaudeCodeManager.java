@@ -74,6 +74,9 @@ public class ClaudeCodeManager {
 	private ClientProcessWrapper cpw = null;
 	private final ReentrantLock startServerLock = new ReentrantLock();
 
+	/** off, mutating or all; handed to the Python client, which enforces it. See ClaudeCodeApprovals. */
+	private String approvalMode = "off";
+
 	protected String varName = null;
 	protected Map<String, String> vars = new HashMap<>();
 
@@ -128,7 +131,8 @@ public class ClaudeCodeManager {
 				.append("base_url=").append(PyUtils.pyQuote(baseUrl)).append(",").append("mcps=").append(mcpsLiteral)
 				.append(",").append("insight_id=").append(PyUtils.pyQuote(insightId != null ? insightId : ""))
 				.append(",").append("room_folder_path=").append(PyUtils.pyQuote(roomFolderPath)).append(",")
-				.append("agent_history_exists=").append(agentHistoryExists ? "True" : "False")
+				.append("agent_history_exists=").append(agentHistoryExists ? "True" : "False").append(",")
+				.append("approval_mode=").append(PyUtils.pyQuote(approvalMode))
 				.append(buildSandboxKwargs(sandboxPolicy, filePath, roomFolderPath)).append(")");
 		return script.toString();
 	}
@@ -231,9 +235,44 @@ public class ClaudeCodeManager {
 		return "claude";
 	}
 
+	/** Sets the approval policy the Python client enforces. Call before {@code query}; the client reads it once. */
+	public void setApprovalMode(String approvalMode) {
+		this.approvalMode = approvalMode == null || approvalMode.trim().isEmpty() ? "off" : approvalMode.trim();
+	}
+
+	/** What a query returned: the text, and the calls it stopped on because they need a person (JSON, may be "[]"). */
+	public static final class QueryResult {
+		private final String output;
+		private final String pendingApprovalsJson;
+
+		QueryResult(String output, String pendingApprovalsJson) {
+			this.output = output;
+			this.pendingApprovalsJson = pendingApprovalsJson;
+		}
+
+		public String getOutput() {
+			return output;
+		}
+
+		public String getPendingApprovalsJson() {
+			return pendingApprovalsJson;
+		}
+	}
+
 	public String query(Insight insight, User user, String engineId, String filePath, String prompt,
 			String systemPrompt, String roomId, List<String> allowedTools, String permissionMode,
 			List<Map<String, String>> mcps, SandboxPolicy sandboxPolicy) throws Exception {
+		return queryWithApprovals(insight, user, engineId, filePath, prompt, systemPrompt, roomId, allowedTools,
+				permissionMode, mcps, sandboxPolicy, null).getOutput();
+	}
+
+	/**
+	 * Same as {@link #query} with approval support: {@code decisionsJson} (the user's decisions on the previous
+	 * pause, or null) goes to the client before the turn, and the calls it stopped on come back with the text.
+	 */
+	public QueryResult queryWithApprovals(Insight insight, User user, String engineId, String filePath, String prompt,
+			String systemPrompt, String roomId, List<String> allowedTools, String permissionMode,
+			List<Map<String, String>> mcps, SandboxPolicy sandboxPolicy, String decisionsJson) throws Exception {
 
 		String insightId = insight.getInsightId();
 		classLogger.debug("InsightID for this query is {} and the roomId is {}", insightId, roomId);
@@ -253,8 +292,17 @@ public class ClaudeCodeManager {
 		String jobId = ThreadStore.getJobId();
 		AgentCliSocketRegistry.register(jobId, cpw != null ? cpw.getSocketClient() : null);
 		try {
+			if (decisionsJson != null && !decisionsJson.trim().isEmpty()) {
+				pyTranslator.runDirectPyNoCancelTrace(insight,
+						"claude_code.set_decisions(" + PyUtils.pyQuote(decisionsJson) + ")");
+			}
 			Object output = pyTranslator.runDirectPyNoCancelTrace(insight, queryScript);
-			return String.valueOf(output);
+			String pending = "[]";
+			if (!"off".equals(approvalMode)) {
+				pending = String.valueOf(pyTranslator.runDirectPyNoCancelTrace(insight,
+						"claude_code.take_pending_approvals()"));
+			}
+			return new QueryResult(String.valueOf(output), pending);
 		} finally {
 			AgentCliSocketRegistry.unregister(jobId);
 		}

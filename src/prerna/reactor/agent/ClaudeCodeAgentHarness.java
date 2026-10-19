@@ -29,6 +29,7 @@ package prerna.reactor.agent;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -38,6 +39,10 @@ import org.apache.logging.log4j.Logger;
 import prerna.auth.User;
 import prerna.engine.impl.model.ClaudeCodeManager;
 import prerna.engine.impl.model.Room;
+import prerna.reactor.agent.exceptions.AgentInputRequiredException;
+import prerna.reactor.agent.run.AgentRunActionStore;
+import prerna.reactor.agent.stream.AgentRunStreamService;
+import prerna.reactor.agent.stream.AgentStreamItems;
 import prerna.reactor.agent.sandbox.AgentSandboxConfig;
 import prerna.reactor.agent.sandbox.SandboxPolicy;
 
@@ -124,27 +129,82 @@ public class ClaudeCodeAgentHarness implements IAgentHarness {
                 engineId, filePath, mcps == null ? 0 : mcps.size());
 
         ClaudeCodeManager manager = new ClaudeCodeManager();
+        String approvalMode = ClaudeCodeApprovals.resolveMode();
+        manager.setApprovalMode(approvalMode);
+
+        // After a pause the user's decisions go back to Claude: the client allows an approved call once when it is
+        // issued again, and the continuation tells Claude what was decided.
+        List<Map<String, Object>> decided = Collections.emptyList();
+        String prompt = input;
+        if (ctx.isResumeMode() && ctx.getRunId() != null && !ctx.getRunId().trim().isEmpty()) {
+            decided = ClaudeCodeApprovals.awaitingResume(AgentRunActionStore.getActionsForRun(ctx.getRunId()));
+            if (!decided.isEmpty()) {
+                prompt = ClaudeCodeApprovals.continuationPrompt(decided, input);
+            }
+        }
+        String decisionsJson = decided.isEmpty() ? null : ClaudeCodeApprovals.decisionsJson(decided);
+
         String targetBinary = ClaudeCodeManager.resolveClaudeBinary();
         SandboxPolicy policy = AgentSandboxConfig.buildEffectivePolicy(
                 room.getRoomFolderPath(), filePath, targetBinary, ctx.getSandboxPolicy());
-        String output = manager.query(
+        ClaudeCodeManager.QueryResult queryResult = manager.queryWithApprovals(
                 ctx.getInsight(),
                 user,
                 engineId,
                 filePath,
-                input,
+                prompt,
                 systemPrompt,
                 room.getId(),
                 allowedTools,
                 permissionMode,
                 mcps,
-                policy);
+                policy,
+                decisionsJson);
+        String output = queryResult.getOutput();
+
+        // Claude has now been told; an old approval must not cover a later identical call.
+        for (Map<String, Object> action : decided) {
+            AgentRunActionStore.markToolStatus(String.valueOf(action.get("actionId")), ctx.getRunId(),
+                    ClaudeCodeApprovals.TOOL_STATUS_APPLIED);
+        }
+
+        List<Map<String, Object>> pending = ClaudeCodeApprovals.parsePending(queryResult.getPendingApprovalsJson());
+        if (!pending.isEmpty()) {
+            pauseForApproval(ctx, room, pending);
+        }
 
         AgentHarnessResult result = new AgentHarnessResult(output, 0, new ArrayList<>());
         logger.debug("[{}] post-message: room={}, iterations={}, finalTextLen={}",
                 NAME, room.getId(), result.getIterations(),
                 output == null ? 0 : output.length());
         return result;
+    }
+
+    /**
+     * Records the calls Claude stopped on and pauses the run. The run becomes INPUT_REQUIRED, Harness and Code show
+     * the calls as waiting for approval, and a decision resumes it.
+     */
+    private static void pauseForApproval(AgentRunContext ctx, Room room, List<Map<String, Object>> pending) {
+        String runId = ctx.getRunId();
+        if (runId == null || runId.trim().isEmpty()) {
+            throw new IllegalStateException(NAME + ": cannot pause for approval without a run id");
+        }
+        String userId = ctx.getUserId();
+        if (userId == null || userId.trim().isEmpty()) {
+            userId = room.getUserId();
+        }
+        List<Map<String, Object>> rows = ClaudeCodeApprovals.toActionRows(pending);
+        if (rows.isEmpty()) {
+            return;
+        }
+        AgentRunActionStore.insertPendingActions(runId, room.getId(), userId, rows);
+        for (Map<String, Object> row : rows) {
+            Map<String, Object> patch = new HashMap<>();
+            patch.put("status", AgentStreamItems.TOOL_INPUT_REQUIRED);
+            AgentRunStreamService.get().publishToolUpdated(runId, String.valueOf(row.get("toolCallId")), patch);
+        }
+        logger.info("[{}] run {} paused for approval of {} call(s)", NAME, runId, rows.size());
+        throw new AgentInputRequiredException(null, ClaudeCodeApprovals.toPauseToolCalls(rows));
     }
 
     @SuppressWarnings("unchecked")

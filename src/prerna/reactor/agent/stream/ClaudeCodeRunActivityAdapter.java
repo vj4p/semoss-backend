@@ -130,10 +130,19 @@ public final class ClaudeCodeRunActivityAdapter {
 			boolean failed = isFailedStatus(ValueUtils.toStringOrNull(data.get("status")));
 			String content = AgentStreamItems.truncate(ValueUtils.toStringOrNull(data.get("content")),
 					AgentStreamItems.MAX_TOOL_OUTPUT_CHARS);
-			Map<String, Object> item = new LinkedHashMap<>();
-			item.put("id", toolUseId);
-			item.put("kind", AgentStreamItems.KIND_TOOL);
-			item.put("status", failed ? AgentStreamItems.TOOL_FAILED : AgentStreamItems.TOOL_COMPLETED);
+			// A completion replaces the item the client already holds, so it has to say which tool it was: without the
+			// name and arguments the Code console had nothing to draw and crashed.
+			String toolName = ValueUtils.toStringOrNull(data.get("toolName"));
+			Map<String, Object> item;
+			if (toolName != null && !toolName.isBlank()) {
+				item = AgentStreamItems.toolItem(toolUseId, toolName, asMap(data.get("arguments")), null,
+						failed ? AgentStreamItems.TOOL_FAILED : AgentStreamItems.TOOL_COMPLETED);
+			} else {
+				item = new LinkedHashMap<>();
+				item.put("id", toolUseId);
+				item.put("kind", AgentStreamItems.KIND_TOOL);
+				item.put("status", failed ? AgentStreamItems.TOOL_FAILED : AgentStreamItems.TOOL_COMPLETED);
+			}
 			putIfPresent(item, failed ? "error" : "output", content);
 			Long durationMs = longValue(data.get("durationMs"));
 			if (durationMs != null) {
