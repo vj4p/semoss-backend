@@ -97,7 +97,18 @@ public final class ClaudeCodeApprovals {
 	 * quietly switch approval off.
 	 */
 	public static String resolveMode() {
-		return resolveMode(Utility.getDIHelperProperty(CFG_APPROVAL));
+		return resolveMode(firstSet(Utility.getDIHelperProperty(CFG_APPROVAL), System.getenv(CFG_APPROVAL)));
+	}
+
+	/**
+	 * RDF_Map.prop only gets the settings runCS.sh copies into it, and this one has no copy script, so a container
+	 * environment variable (the usual way to configure a deployment) would otherwise be ignored. The property wins.
+	 */
+	static String firstSet(String fromProperty, String fromEnvironment) {
+		if (fromProperty != null && !fromProperty.trim().isEmpty()) {
+			return fromProperty;
+		}
+		return fromEnvironment;
 	}
 
 	static String resolveMode(String raw) {

@@ -70,6 +70,14 @@ class ClaudeCodeApprovalsTest {
 	}
 
 	@Test
+	void theEnvironmentVariableCountsWhenThePropertyIsUnset() {
+		assertEquals("off", ClaudeCodeApprovals.resolveMode(ClaudeCodeApprovals.firstSet(null, "off")));
+		assertEquals("off", ClaudeCodeApprovals.resolveMode(ClaudeCodeApprovals.firstSet("  ", "off")));
+		assertEquals("all", ClaudeCodeApprovals.resolveMode(ClaudeCodeApprovals.firstSet("all", "off")));
+		assertEquals("mutating", ClaudeCodeApprovals.resolveMode(ClaudeCodeApprovals.firstSet(null, null)));
+	}
+
+	@Test
 	void aTypoNeverSwitchesApprovalOff() {
 		assertEquals("mutating", ClaudeCodeApprovals.resolveMode("of"));
 		assertEquals("mutating", ClaudeCodeApprovals.resolveMode("false"));
