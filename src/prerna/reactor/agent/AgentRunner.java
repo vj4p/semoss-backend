@@ -41,6 +41,7 @@ import prerna.auth.User;
 import prerna.auth.utils.SecurityEngineUtils;
 import prerna.auth.utils.SecurityModelMetadataUtils;
 import prerna.auth.utils.SecurityProjectUtils;
+import prerna.collaboration.CollaborationRunMode;
 import prerna.cluster.util.ClusterUtil;
 import prerna.engine.api.IEngine;
 import prerna.engine.api.IModelEngine;
@@ -255,6 +256,11 @@ public final class AgentRunner {
 		// Resolve and strip any per-run workspace override before model + working-dir
 		// lookup.
 		String explicitWorkspaceId = extractExplicitWorkspaceId(params);
+		// a Collaboration chat or routine with no agent of its own runs the Collaboration Agent
+		if (explicitWorkspaceId == null && extractWorkspaceIdFromOptionField(room.getOptionsMap().get("workspace")) == null
+				&& CollaborationRunMode.of(room) != null) {
+			explicitWorkspaceId = Constants.AGENT_COLLABORATION;
+		}
 		String effectiveWorkspaceId = explicitWorkspaceId != null ? explicitWorkspaceId
 				: extractWorkspaceIdFromOptionField(room.getOptionsMap().get("workspace"));
 
