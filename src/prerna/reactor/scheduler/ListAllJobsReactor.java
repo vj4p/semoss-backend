@@ -31,6 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import prerna.auth.AccessToken;
+import prerna.auth.AuthProvider;
 import prerna.auth.User;
 import prerna.auth.utils.SecurityAdminUtils;
 import prerna.auth.utils.SecurityProjectUtils;
@@ -78,10 +80,15 @@ public class ListAllJobsReactor extends AbstractReactor {
 					"Project does not exist or user does not have permission to view its scheduled jobs");
 		}
 
+		if (userId != null && !SecurityAdminUtils.userIsAdmin(user) && !userOwnsId(user, userId)) {
+			throw new IllegalArgumentException("User does not have permission to view another user's scheduled jobs");
+		}
+
 		if (projectId == null && userId == null) {
-			// TODO: check if admin if not admin throw permissions error
-			// security utils. isAdmin() to check if user is admin *******
-			// return all jobs
+			// listing every job in the platform is admin only
+			if (!SecurityAdminUtils.userIsAdmin(user)) {
+				throw new IllegalArgumentException("User does not have permission to view all scheduled jobs");
+			}
 			jobMap = SchedulerDatabaseUtility.retrieveAllJobs(jobTags);
 		} else if (projectId != null && userId == null) {
 			jobMap = SchedulerDatabaseUtility.retrieveJobsForProject(projectId, jobTags);
@@ -92,6 +99,23 @@ public class ListAllJobsReactor extends AbstractReactor {
 		}
 
 		return new NounMetadata(jobMap, PixelDataType.MAP, PixelOperationType.LIST_JOB);
+	}
+
+	/**
+	 * Scheduled jobs store the id of the login that created them, so a user may
+	 * only filter by an id that belongs to one of their own logins
+	 */
+	private static boolean userOwnsId(User user, String userId) {
+		if (user == null) {
+			return false;
+		}
+		for (AuthProvider provider : user.getLogins()) {
+			AccessToken token = user.getAccessToken(provider);
+			if (token != null && userId.equals(token.getId())) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private List<String> getJobTags() {

@@ -34,6 +34,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.quartz.Scheduler;
 
+import prerna.auth.utils.SecurityAdminUtils;
 import prerna.engine.api.IRDBMSEngine;
 import prerna.engine.api.IRawSelectWrapper;
 import prerna.query.querystruct.SelectQueryStruct;
@@ -64,6 +65,10 @@ public class SchedulerHistoryReactor extends AbstractReactor {
 	public NounMetadata execute() {
 		if (Utility.schedulerForceDisable()) {
 			throw new IllegalArgumentException("Scheduler is not enabled");
+		}
+		// the audit trail spans every project's jobs, so it is admin only
+		if (!SecurityAdminUtils.userIsAdmin(this.insight.getUser())) {
+			throw new IllegalArgumentException("User does not have permission to view scheduler history");
 		}
 
 		Scheduler scheduler = SchedulerFactorySingleton.getInstance().getScheduler();
