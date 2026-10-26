@@ -151,6 +151,18 @@ public final class AutomationConstants {
 	public static final String RESULT_ROLE_OUTPUT = "OUTPUT";
 	public static final int SAVED_RESULT_FORMAT_VERSION = 1;
 	public static final int SAVED_RESULT_RETENTION_DAYS = 30;
+	/** Column holding the redacted, bounded scope a step could read when it started. */
+	public static final String STEP_INPUT_SNAPSHOT = "STEP_INPUT_SNAPSHOT";
+	/** Step input snapshots are kept this long, like saved results. */
+	public static final int STEP_INPUT_SNAPSHOT_RETENTION_DAYS = 30;
+	/** Most variables kept in one step input snapshot. */
+	public static final int STEP_INPUT_SNAPSHOT_MAX_VARIABLES = 100;
+	/** Longest display value kept for one variable, in characters. */
+	public static final int STEP_INPUT_SNAPSHOT_MAX_VALUE_LENGTH = 2_000;
+	/** Largest step input snapshot, in UTF-8 bytes. */
+	public static final int STEP_INPUT_SNAPSHOT_MAX_BYTES = 256 * 1024;
+	/** Shown in place of a value whose name marks it as a secret. */
+	public static final String STEP_INPUT_REDACTED = "[redacted]";
 	public static final int SAVED_RESULT_MAX_CHUNK_ROWS = 1_000;
 	public static final int SAVED_RESULT_MAX_CHUNK_BYTES = 1_048_576;
 	public static final long SAVED_RESULT_MAX_ROWS = 1_000_000;
@@ -394,6 +406,14 @@ public final class AutomationConstants {
 	public static final String RESULT_SIGNALLED_LOCALLY = "signalledLocally";
 	public static final String RESULT_OUTPUT_VALUE = "outputValue";
 	public static final String RESULT_TRACE = "trace";
+	/** Name of the variable a step's output was stored under. */
+	public static final String RESULT_OUTPUT_VARIABLE = "outputVariable";
+	/** Variables a step could read when it started; returned to editors only. */
+	public static final String RESULT_INPUT_VARIABLES = "inputVariables";
+	/** Whether a step's output was retained as a table. */
+	public static final String RESULT_OUTPUT_DATA_AVAILABLE = "outputDataAvailable";
+	/** Row count of a step's retained table output. */
+	public static final String RESULT_OUTPUT_DATA_ROW_COUNT = "outputDataRowCount";
 	/**
 	 * Internal generated-node envelope value; removed before history/scope
 	 * persistence.

@@ -338,6 +338,8 @@ final class AutomationRunExecutionService {
 			}
 			String nodeId = (String) node.get(AutomationConstants.NODE_FIELD_ID);
 			Handler handler = handlerFor(node);
+			// what the step can read now, for the run view; never affects the run
+			AutomationRunStore.recordStepInput(runId, nodeId, context.values());
 			Map<String, Object> nodeResult = switch (handler) {
 			case START -> executeStartNode(context, runId, node);
 			case CONDITION -> executeConditionNode(runId, node, context.values());

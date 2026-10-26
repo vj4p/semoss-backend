@@ -32,6 +32,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import prerna.auth.User;
+import prerna.auth.utils.SecurityProjectUtils;
 import prerna.reactor.AbstractReactor;
 import prerna.reactor.automation.AutomationConstants;
 import prerna.reactor.automation.project.AutomationProjectService;
@@ -83,18 +85,64 @@ public class GetAutomationRunReactor extends AbstractReactor {
 			return new NounMetadata(notFound, PixelDataType.MAP, PixelOperationType.OPERATION);
 		}
 
+		// what the run was given and what each step could read is run data, so it is
+		// shown only to a caller who can edit the automation, and only while retained
+		boolean showRunData = canSeeRunData(this.insight.getUser(), projectId)
+				&& AutomationRunStore.isWithinStepInputRetention(runId);
 		List<Map<String, Object>> nodeOutputs = AutomationRunStore.getNodeOutputsForRun(runId);
-		List<Map<String, Object>> nodeResults = AutomationRunStore.buildNodeResults(nodeOutputs);
+		List<Map<String, Object>> nodeResults = AutomationRunStore.buildNodeResults(nodeOutputs, showRunData);
+		List<Map<String, Object>> savedResults = AutomationRunStore.getSavedResultReferencesForRun(runId);
+		markRetainedTables(nodeResults, savedResults);
+		if (showRunData) {
+			try {
+				String inputs = AutomationStepSnapshot.redactInputs(AutomationRunStore.getRunInputs(runId));
+				if (inputs != null) {
+					runDetail.put(AutomationConstants.INPUT_SNAPSHOT, inputs);
+				}
+			} catch (RuntimeException e) {
+				// an unreadable snapshot only means there is nothing to show
+			}
+		}
 
 		runDetail.put(AutomationConstants.RESULT_NODE_RESULTS, nodeResults);
-		runDetail.put(AutomationConstants.RESULT_SAVED_RESULTS,
-				AutomationRunStore.getSavedResultReferencesForRun(runId));
+		runDetail.put(AutomationConstants.RESULT_SAVED_RESULTS, savedResults);
 		attachExecutionInsight(runDetail, runId);
 		Map<String, Object> wait = AutomationRunStore.getActiveWait(runId);
 		if (wait != null) {
 			runDetail.put("wait", wait);
 		}
 		return new NounMetadata(runDetail, PixelDataType.MAP, PixelOperationType.OPERATION);
+	}
+
+	/**
+	 * @param user      the caller
+	 * @param projectId the run scope; an inline scope is the caller's own
+	 * @return whether the caller may see a run's inputs and step variables
+	 */
+	private static boolean canSeeRunData(User user, String projectId) {
+		return AutomationProjectService.isInlineRunScope(projectId)
+				|| SecurityProjectUtils.userCanEditProject(user, projectId);
+	}
+
+	/** Marks the top-level steps whose table output was retained, with its row count. */
+	static void markRetainedTables(List<Map<String, Object>> nodeResults, List<Map<String, Object>> savedResults) {
+		for (Map<String, Object> saved : savedResults) {
+			if (saved.get(AutomationConstants.PARENT_NODE_ID) != null
+					|| !AutomationConstants.RESULT_KIND_TABLE.equals(saved.get(AutomationConstants.RESULT_KIND))) {
+				continue;
+			}
+			for (Map<String, Object> result : nodeResults) {
+				if (!String.valueOf(saved.get(AutomationConstants.NODE_ID))
+						.equals(String.valueOf(result.get(AutomationConstants.NODE_ID)))) {
+					continue;
+				}
+				result.put(AutomationConstants.RESULT_OUTPUT_DATA_AVAILABLE, true);
+				Object rows = saved.get(AutomationConstants.ROW_COUNT);
+				if (rows instanceof Number number) {
+					result.put(AutomationConstants.RESULT_OUTPUT_DATA_ROW_COUNT, number.longValue());
+				}
+			}
+		}
 	}
 
 	/**

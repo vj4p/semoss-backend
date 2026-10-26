@@ -327,6 +327,13 @@ public final class AutomationRunStore {
 
 	private static final String UPDATE_NODE_OUTPUT_AGENT_RUN_TRACE = "UPDATE AUTOMATION_NODE_OUTPUTS SET AGENT_RUN_ID = ? WHERE RUN_ID = ? AND NODE_ID = ?";
 
+	private static final String UPDATE_NODE_STEP_INPUT = "UPDATE AUTOMATION_NODE_OUTPUTS SET STEP_INPUT_SNAPSHOT = ? WHERE RUN_ID = ? AND NODE_ID = ?";
+
+	private static final String PURGE_EXPIRED_STEP_INPUTS = """
+			UPDATE AUTOMATION_NODE_OUTPUTS SET STEP_INPUT_SNAPSHOT = NULL \
+			WHERE STEP_INPUT_SNAPSHOT IS NOT NULL AND RUN_ID IN \
+			(SELECT RUN_ID FROM AUTOMATION_RUNS WHERE STARTED_AT < ?)""";
+
 	private static final String UPDATE_NODE_STATUS = "UPDATE AUTOMATION_NODE_OUTPUTS SET STATUS = ?, STARTED_AT = ? WHERE RUN_ID = ? AND NODE_ID = ?";
 
 	private static final String SKIP_PENDING_NODE_OUTPUTS = "UPDATE AUTOMATION_NODE_OUTPUTS SET STATUS = ?, ERROR_MESSAGE = ? WHERE RUN_ID = ? AND STATUS = ?";
@@ -363,6 +370,7 @@ public final class AutomationRunStore {
 			// create the tables and columns from the OWL creator schema
 			AbstractOwlCreator.syncSchema(schedulerDb, conn, automationTables, NOT_NULL_COLUMNS);
 			applyKeysAndIndexes(conn, queryUtil, database, schema, allowIfExists);
+			purgeExpiredStepInputs(conn);
 
 			if (!conn.getAutoCommit()) {
 				conn.commit();
@@ -373,6 +381,24 @@ public final class AutomationRunStore {
 			classLogger.error("Failed to initialize automation engine tables", e);
 		} finally {
 			closeConnection(schedulerDb, conn);
+		}
+	}
+
+	/**
+	 * Drops step input snapshots of runs older than the retention period; a read
+	 * also ignores them once expired, so this only frees the space.
+	 */
+	private static void purgeExpiredStepInputs(Connection conn) {
+		Instant cutoff = Instant.now()
+				.minusSeconds(AutomationConstants.STEP_INPUT_SNAPSHOT_RETENTION_DAYS * 24L * 60 * 60);
+		try (PreparedStatement ps = conn.prepareStatement(PURGE_EXPIRED_STEP_INPUTS)) {
+			ps.setTimestamp(1, toTimestamp(cutoff));
+			int purged = ps.executeUpdate();
+			if (purged > 0) {
+				classLogger.info("Dropped {} expired automation step input snapshots", purged);
+			}
+		} catch (SQLException e) {
+			classLogger.warn("Could not drop expired automation step inputs: {}", e.getMessage());
 		}
 	}
 
@@ -1343,6 +1369,59 @@ public final class AutomationRunStore {
 	}
 
 	/**
+	 * @param runId run to check
+	 * @return whether the run started recently enough for its step input snapshots
+	 *         to be shown
+	 */
+	public static boolean isWithinStepInputRetention(String runId) {
+		IRDBMSEngine schedulerDb = getSchedulerDb();
+		if (schedulerDb == null) {
+			return false;
+		}
+		Timestamp cutoff = toTimestamp(Instant.now()
+				.minusSeconds(AutomationConstants.STEP_INPUT_SNAPSHOT_RETENTION_DAYS * 24L * 60 * 60));
+		try {
+			Integer count = QueryExecutionUtility.queryOne(schedulerDb,
+					"SELECT COUNT(*) FROM AUTOMATION_RUNS WHERE RUN_ID = ? AND STARTED_AT >= ?", ps -> {
+						ps.setString(1, runId);
+						ps.setTimestamp(2, cutoff);
+					}, rs -> rs.getInt(1));
+			return count != null && count > 0;
+		} catch (Exception e) {
+			classLogger.warn("Could not check the step input retention of run '{}': {}", runId, e.getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * Records the variables a step could read when it started. This is a
+	 * diagnostic aid, so a failure to record it is logged and never fails the run.
+	 *
+	 * @param runId  run the step belongs to
+	 * @param nodeId step whose input is recorded
+	 * @param scope  live variables, which are redacted and bounded before storage
+	 */
+	public static void recordStepInput(String runId, String nodeId, Map<String, Object> scope) {
+		try {
+			IRDBMSEngine schedulerDb = requireSchedulerDb("recording the automation step input");
+			String snapshot = AutomationStepSnapshot.toJson(scope);
+			QueryExecutionUtility.write(schedulerDb, conn -> {
+				try (PreparedStatement ps = conn.prepareStatement(UPDATE_NODE_STEP_INPUT)) {
+					int index = 1;
+					schedulerDb.getQueryUtil().setNullableLargeText(ps, index++, snapshot);
+					ps.setString(index++, runId);
+					ps.setString(index++, nodeId);
+					ps.executeUpdate();
+				}
+				return null;
+			});
+		} catch (Exception e) {
+			classLogger.warn("Could not record the step input for run '{}', node '{}': {}", runId, nodeId,
+					e.getMessage());
+		}
+	}
+
+	/**
 	 * Marks all nodes that did not start because the run reached a terminal state
 	 * as skipped.
 	 */
@@ -1637,6 +1716,8 @@ public final class AutomationRunStore {
 		qs.addSelector(new QueryColumnSelector(TABLE_NODE_OUTPUTS + "__" + AutomationConstants.SOURCE_NODE_ID,
 				AutomationConstants.SOURCE_NODE_ID));
 		qs.addSelector(new QueryColumnSelector(TABLE_NODE_OUTPUTS + "__" + ERROR_MESSAGE, ERROR_MESSAGE));
+		qs.addSelector(new QueryColumnSelector(TABLE_NODE_OUTPUTS + "__" + AutomationConstants.STEP_INPUT_SNAPSHOT,
+				AutomationConstants.STEP_INPUT_SNAPSHOT));
 
 		qs.addExplicitFilter(SimpleQueryFilter.makeColToValFilter(TABLE_NODE_OUTPUTS + "__" + RUN_ID, "==", runId,
 				PixelDataType.CONST_STRING));
@@ -1708,6 +1789,21 @@ public final class AutomationRunStore {
 	 *         null)
 	 */
 	public static List<Map<String, Object>> buildNodeResults(List<Map<String, Object>> nodeOutputs) {
+		return buildNodeResults(nodeOutputs, false);
+	}
+
+	/**
+	 * Builds the per-node results, optionally with the variables each step could
+	 * read when it started. Those variables are redacted and bounded when stored,
+	 * but they are still run data, so only a caller allowed to edit the automation
+	 * should receive them.
+	 *
+	 * @param nodeOutputs        ordered rows from {@link #getNodeOutputsForRun(String)}
+	 * @param includeStepInputs  whether to add each step's recorded input variables
+	 * @return mutable list of node result maps
+	 */
+	public static List<Map<String, Object>> buildNodeResults(List<Map<String, Object>> nodeOutputs,
+			boolean includeStepInputs) {
 		List<Map<String, Object>> nodeResults = new ArrayList<>();
 		Map<String, Map<String, Object>> parentResults = new LinkedHashMap<>();
 		Map<String, Map<Integer, List<Map<String, Object>>>> loopIterations = new LinkedHashMap<>();
@@ -1734,6 +1830,10 @@ public final class AutomationRunStore {
 				nodeResult.put(AutomationConstants.OUTPUT_VALUE, outputValue);
 			}
 			nodeResult.put(AutomationConstants.ERROR_MESSAGE, output.get(AutomationConstants.ERROR_MESSAGE));
+			putIfPresent(nodeResult, AutomationConstants.RESULT_OUTPUT_VARIABLE, output.get(OUTPUT_VAR_NAME));
+			if (includeStepInputs) {
+				putStepInputs(nodeResult, output.get(AutomationConstants.STEP_INPUT_SNAPSHOT));
+			}
 			Map<String, Object> trace = new LinkedHashMap<>();
 			putIfPresent(trace, AutomationConstants.TRACE_AUTOMATION_RUN_ID, output.get(AutomationConstants.RUN_ID));
 			putIfPresent(trace, AutomationConstants.TRACE_NODE_ID, output.get(AutomationConstants.NODE_ID));
@@ -1775,6 +1875,27 @@ public final class AutomationRunStore {
 
 	// -- Table Creation
 	// ------------------------------------------------------------
+
+	/** Adds the recorded step input, if there is one and it can be read. */
+	private static void putStepInputs(Map<String, Object> nodeResult, Object snapshot) {
+		if (snapshot == null || snapshot.toString().isBlank()) {
+			return;
+		}
+		try {
+			Map<String, Object> record = AutomationRuntimeUtils.GSON.fromJson(snapshot.toString(),
+					AutomationRuntimeUtils.MAP_TYPE);
+			if (record == null || !(record.get("variables") instanceof List<?>)) {
+				return;
+			}
+			nodeResult.put(AutomationConstants.RESULT_INPUT_VARIABLES, record.get("variables"));
+			Object omitted = record.get("omitted");
+			if (omitted instanceof Number number && number.intValue() > 0) {
+				nodeResult.put(AutomationConstants.RESULT_INPUT_VARIABLES + "Omitted", number.intValue());
+			}
+		} catch (RuntimeException e) {
+			classLogger.warn("Ignoring an unreadable step input snapshot: {}", e.getMessage());
+		}
+	}
 
 	private static void putIfPresent(Map<String, Object> target, String key, Object value) {
 		if (value != null && !value.toString().isBlank()) {
