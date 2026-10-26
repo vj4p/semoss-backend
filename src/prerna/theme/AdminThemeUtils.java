@@ -174,7 +174,7 @@ public class AdminThemeUtils extends AbstractThemeUtils {
 			QueryExecutionUtility.executeUpdate(themeDb, "UPDATE ADMIN_THEME SET IS_ACTIVE=? WHERE IS_ACTIVE=?", ps -> {
 				int parameterIndex = 1;
 				ps.setBoolean(parameterIndex++, false);
-				ps.setBoolean(parameterIndex++, false);
+				ps.setBoolean(parameterIndex++, true);
 			});
 		} catch (RuntimeException e) {
 			throw e;
@@ -183,6 +183,7 @@ public class AdminThemeUtils extends AbstractThemeUtils {
 			return false;
 		}
 
+		PlaygroundThemeUtils.refreshCacheFromActiveTheme();
 		return true;
 	}
 

@@ -3298,7 +3298,7 @@ public class ModelInferenceLogsUtils {
 					});
 		} catch (Exception e) {
 			classLogger.error("Failed to set workspace active for workspaceId '{}'.", workspaceId, e);
-			throw new IllegalArgumentException("Error deactivating workspace: " + e.getMessage(), e);
+			throw new IllegalArgumentException("Error activating workspace: " + e.getMessage(), e);
 		}
 	}
 

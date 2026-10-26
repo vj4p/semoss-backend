@@ -188,7 +188,7 @@ public class EditScheduledJobReactor extends ScheduleJobReactor {
 				TriggerKey triggerKey = TriggerKey.triggerKey(triggerName, triggerGroup);
 				Trigger trigger = TriggerBuilder.newTrigger().withIdentity(triggerName, triggerGroup)
 						.withSchedule(CronScheduleBuilder.cronSchedule(cronExpression)
-								.inTimeZone(TimeZone.getTimeZone(Utility.getApplicationTimeZoneId())))
+								.inTimeZone(cronTimeZone))
 						.build();
 				// reschedule job
 				if (scheduler.checkExists(jobKey)) {

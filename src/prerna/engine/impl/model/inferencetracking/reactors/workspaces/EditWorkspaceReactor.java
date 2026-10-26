@@ -137,7 +137,7 @@ public class EditWorkspaceReactor extends AbstractWorkspaceReactor {
 
 		if (currentlyActive && !isActive) {
 			if (SecurityProjectUtils.userIsOwner(user, workspaceId)) {
-				ModelInferenceLogsUtils.doSetWorksapceToActive(workspaceId);
+				ModelInferenceLogsUtils.doSetWorkspaceToInactive(workspaceId);
 			} else {
 				throw new IllegalArgumentException("User must be an owner to set the workspace to inactive");
 			}

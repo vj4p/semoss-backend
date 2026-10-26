@@ -95,7 +95,7 @@ public class PauseJobTriggerReactor extends AbstractReactor {
 			if (scheduler.checkExists(jobKey)) {
 				scheduler.pauseTrigger(triggerKey);
 				UserAuditTrailUtils.recordJobEvent(user, AuditEventType.JOB_PAUSE, jobId, null, jobGroup, null);
-				return new NounMetadata(false, PixelDataType.BOOLEAN, PixelOperationType.UNSCHEDULE_JOB);
+				return new NounMetadata(true, PixelDataType.BOOLEAN, PixelOperationType.UNSCHEDULE_JOB);
 			}
 		} catch (SchedulerException se) {
 			classLogger.error("Failed to pause job trigger for jobId '{}', jobGroup '{}': {}", jobId, jobGroup,

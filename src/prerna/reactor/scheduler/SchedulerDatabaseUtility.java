@@ -194,6 +194,7 @@ public class SchedulerDatabaseUtility {
 			SMSS_JOB_RECIPES.PIXEL_RECIPE, \
 			SMSS_JOB_RECIPES.PIXEL_RECIPE_PARAMETERS, \
 			SMSS_JOB_RECIPES.UI_STATE, \
+			SMSS_JOB_RECIPES.TRIGGER_ON_LOAD, \
 			QRTZ_TRIGGERS.NEXT_FIRE_TIME, \
 			SMSS_AUDIT_TRAIL.EXECUTION_START, \
 			QRTZ_TRIGGERS.TRIGGER_STATE""";
@@ -1252,6 +1253,8 @@ public class SchedulerDatabaseUtility {
 		jobDetailsMap.put(ReactorKeysEnum.CRON_TZ.getKey(), cronTimeZone);
 		jobDetailsMap.put(ReactorKeysEnum.RECIPE.getKey(), recipe);
 		jobDetailsMap.put(ReactorKeysEnum.RECIPE_PARAMETERS.getKey(), recipeParameters);
+		// without this, editing a job from the listing silently clears the flag
+		jobDetailsMap.put(ScheduleJobReactor.TRIGGER_ON_LOAD, String.valueOf(result.getBoolean(TRIGGER_ON_LOAD)));
 		if (uiState != null && !(uiState = uiState.trim()).isEmpty()) {
 			jobDetailsMap.put(ScheduleJobReactor.UI_STATE, uiState);
 		}
