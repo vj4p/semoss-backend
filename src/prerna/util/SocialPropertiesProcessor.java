@@ -279,6 +279,11 @@ public final class SocialPropertiesProcessor {
 
 		// Modify
 		for (String mod : mods.keySet()) {
+			// the default file has key-only lines, which leave the layout no separator to keep,
+			// so the new value would be written straight onto the end of the key
+			if (config instanceof PropertiesConfiguration propertiesConfig && propertiesConfig.containsKey(mod)) {
+				propertiesConfig.getLayout().setSeparator(mod, " = ");
+			}
 			config.setProperty(mod, mods.get(mod));
 		}
 
