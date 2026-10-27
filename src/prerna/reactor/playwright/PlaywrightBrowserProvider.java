@@ -131,14 +131,25 @@ public final class PlaywrightBrowserProvider {
 			describedAs = "Playwright's bundled Chromium";
 		}
 
+		Playwright created = null;
 		try {
-			Playwright created = Playwright.create();
+			created = Playwright.create();
 			Browser launched = created.chromium().launch(options);
 			playwright = created;
 			classLogger.info("Playwright browser launched using {}", describedAs);
 			return launched;
 		} catch (Exception e) {
 			classLogger.error("Failed to launch a Playwright browser using {}", describedAs, e);
+			// Playwright.create() starts a Node driver process (about 110 MB). When the
+			// launch then fails, for example because Chromium's system libraries are
+			// missing, nothing else holds the driver, so close it or each retry leaks one.
+			if (created != null) {
+				try {
+					created.close();
+				} catch (Exception closeError) {
+					classLogger.warn("Could not close the Playwright driver after a failed launch", closeError);
+				}
+			}
 			throw new SemossPixelException("Could not start a browser (" + describedAs
 					+ "). Install a browser in the container and set " + PLAYWRIGHT_CHANNEL + " (e.g. 'chrome') or "
 					+ PLAYWRIGHT_EXECUTABLE_PATH + ". Detailed error = " + e.getMessage(), e);
