@@ -27,6 +27,7 @@
  *******************************************************************************/
 package prerna.remoteviewer.service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -86,6 +87,9 @@ public class RemoteBrowserSession {
 
 	/** Whether the WebSocket client is currently connected. */
 	private volatile boolean wsConnected = false;
+
+	/** When the viewer socket last closed; null while it is open, or before it ever opened. */
+	private volatile Instant wsDisconnectedAt;
 
 	/** Whether future input events should be captured into the temporary buffer. */
 	private volatile boolean recordingEnabled = false;
@@ -205,6 +209,33 @@ public class RemoteBrowserSession {
 
 	public void setWsConnected(boolean connected) {
 		this.wsConnected = connected;
+		this.wsDisconnectedAt = connected ? null : Instant.now();
+	}
+
+	/**
+	 * Whether the viewer has gone and nothing has used the session since: the
+	 * socket is closed, and neither its closing nor any activity is within the
+	 * grace period. A session whose socket never opened counts from its creation,
+	 * so a page that created one and died is not kept for the whole idle TTL.
+	 *
+	 * @param now   the time to measure to
+	 * @param grace how long a closed viewer may stay away before it is abandoned
+	 * @return true when the session should be reaped
+	 */
+	public boolean isAbandoned(Instant now, Duration grace) {
+		return isAbandoned(wsConnected, wsDisconnectedAt, createdAt, lastActivityAt, now, grace);
+	}
+
+	static boolean isAbandoned(boolean connected, Instant disconnectedAt, Instant created, Instant lastActivity,
+			Instant now, Duration grace) {
+		if (connected) {
+			return false;
+		}
+		Instant since = disconnectedAt != null ? disconnectedAt : created;
+		if (lastActivity != null && lastActivity.isAfter(since)) {
+			since = lastActivity;
+		}
+		return since.plus(grace).isBefore(now);
 	}
 
 	/**

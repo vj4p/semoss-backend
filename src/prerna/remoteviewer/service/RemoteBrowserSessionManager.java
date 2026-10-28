@@ -27,6 +27,7 @@
  *******************************************************************************/
 package prerna.remoteviewer.service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -89,6 +90,9 @@ public class RemoteBrowserSessionManager {
 
 	/** TTL in seconds before an idle session is reaped. */
 	private final long ttlSeconds;
+
+	/** How long a session whose viewer socket has closed is kept while nothing uses it. */
+	private final Duration disconnectGrace;
 	private final int defaultViewportWidth;
 	private final int defaultViewportHeight;
 	private final int maxSessionsPerUser;
@@ -112,6 +116,7 @@ public class RemoteBrowserSessionManager {
 
 	private RemoteBrowserSessionManager() {
 		this.ttlSeconds = parseLong("REMOTE_BROWSER_SESSION_TTL_SECONDS", 900);
+		this.disconnectGrace = Duration.ofSeconds(parseLong("REMOTE_BROWSER_DISCONNECT_GRACE_SECONDS", 120));
 		this.defaultViewportWidth = parseInt("REMOTE_BROWSER_VIEWPORT_WIDTH", 1365);
 		this.defaultViewportHeight = parseInt("REMOTE_BROWSER_VIEWPORT_HEIGHT", 768);
 		this.maxSessionsPerUser = parseInt("REMOTE_BROWSER_MAX_SESSIONS_PER_USER", 10);
@@ -640,7 +645,9 @@ public class RemoteBrowserSessionManager {
 	}
 
 	/**
-	 * Reaps sessions whose last activity exceeds the configured TTL.
+	 * Reaps sessions that are closed, idle past the configured TTL, or abandoned:
+	 * the viewer socket closed and nothing used the session within the grace
+	 * period. A reload inside the grace period reconnects to the same session.
 	 */
 	public void closeExpiredSessions() {
 		Instant cutoff = Instant.now().minusSeconds(ttlSeconds);
@@ -648,13 +655,13 @@ public class RemoteBrowserSessionManager {
 
 		for (Map.Entry<String, RemoteBrowserSession> entry : sessions.entrySet()) {
 			RemoteBrowserSession s = entry.getValue();
-			if (s.isClosed() || s.getLastActivityAt().isBefore(cutoff)) {
+			if (s.isClosed() || s.getLastActivityAt().isBefore(cutoff) || s.isAbandoned(Instant.now(), disconnectGrace)) {
 				toRemove.add(entry.getKey());
 			}
 		}
 
 		for (String id : toRemove) {
-			classLogger.info("Reaping expired/closed browser session {}", id);
+			classLogger.info("Reaping expired, abandoned or closed browser session {}", id);
 			closeSession(id);
 		}
 	}

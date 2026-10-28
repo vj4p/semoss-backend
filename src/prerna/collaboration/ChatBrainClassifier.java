@@ -118,7 +118,14 @@ final class ChatBrainClassifier implements BrainClassifier {
 				number(answer, "urgency", 3), answer);
 	}
 
-	private static Map<String, Object> parse(String reply) {
+	// a blank reply is its own failure: a reasoning model that spends its whole
+	// output limit thinking comes back with no text at all, and "did not return JSON"
+	// sent people to the prompt when the fix is the engine's max tokens
+	static Map<String, Object> parse(String reply) {
+		if (reply == null || reply.isBlank()) {
+			throw new IllegalStateException("The classifier model returned no text; a reasoning model can use its "
+					+ "whole output limit thinking, so raise the engine's max tokens");
+		}
 		Map<String, Object> answer = CollaborationDbUtils.firstJsonObject(reply);
 		if (answer == null) {
 			throw new IllegalStateException("The classifier model did not return JSON");
