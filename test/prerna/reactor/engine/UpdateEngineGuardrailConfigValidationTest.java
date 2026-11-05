@@ -25,7 +25,7 @@
  * 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * 	GNU General Public License for more details.
  *******************************************************************************/
-package prerna.reactor.model;
+package prerna.reactor.engine;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,7 +36,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * Covers {@link UpdateModelGuardrailConfigReactor#validateConfigStructure},
+ * Covers {@link UpdateEngineGuardrailConfigReactor#validateConfigStructure},
  * the structural (no-DB) half of validation -- the exact mechanism the
  * GLiNER PII guardrail's own javadoc documents attaching with: a
  * {@code pipeline.json} written through this reactor via
@@ -49,7 +49,7 @@ import org.junit.jupiter.api.Test;
  * passing suite here is also a check that the one config shape the docs tell
  * an operator to copy-paste actually validates.
  */
-class UpdateModelGuardrailConfigReactorTest {
+class UpdateEngineGuardrailConfigValidationTest {
 
 	private static final String INPUT_REACTOR = "prerna.reactor.interceptor.GenericGuardrailInputReactor";
 
@@ -67,33 +67,34 @@ class UpdateModelGuardrailConfigReactorTest {
 
 	@Test
 	void acceptsTheGlinerGuardrailsOwnDocumentedExample() {
-		Map<String, Object> pipelines = UpdateModelGuardrailConfigReactor.validateConfigStructure(glinerMaskingPipeline());
+		Map<String, Object> pipelines = UpdateEngineGuardrailConfigReactor
+				.validateConfigStructure(glinerMaskingPipeline()).pipelines();
 		assertTrue(pipelines.containsKey("askRoom"));
 	}
 
 	@Test
 	void emptyPipelinesMapIsValidAndRemovesAllGuardrails() {
-		Map<String, Object> pipelines = UpdateModelGuardrailConfigReactor
-				.validateConfigStructure(Map.of("pipelines", Map.of()));
+		Map<String, Object> pipelines = UpdateEngineGuardrailConfigReactor
+				.validateConfigStructure(Map.of("pipelines", Map.of())).pipelines();
 		assertTrue(pipelines.isEmpty());
 	}
 
 	@Test
 	void rejectsAnUnknownTopLevelKey() {
 		assertThrows(IllegalArgumentException.class,
-				() -> UpdateModelGuardrailConfigReactor.validateConfigStructure(Map.of("pipelines", Map.of(),
+				() -> UpdateEngineGuardrailConfigReactor.validateConfigStructure(Map.of("pipelines", Map.of(),
 						"somethingElse", "value")));
 	}
 
 	@Test
 	void rejectsAMissingPipelinesKey() {
 		assertThrows(IllegalArgumentException.class,
-				() -> UpdateModelGuardrailConfigReactor.validateConfigStructure(Map.of()));
+				() -> UpdateEngineGuardrailConfigReactor.validateConfigStructure(Map.of()));
 	}
 
 	@Test
 	void rejectsAPipelineWithNeitherInputNorOutput() {
-		assertThrows(IllegalArgumentException.class, () -> UpdateModelGuardrailConfigReactor
+		assertThrows(IllegalArgumentException.class, () -> UpdateEngineGuardrailConfigReactor
 				.validateConfigStructure(Map.of("pipelines", Map.of("askRoom", Map.of()))));
 	}
 
@@ -103,7 +104,7 @@ class UpdateModelGuardrailConfigReactorTest {
 				Map.of("guardrailEngineId", "x", "inputMapping", Map.of("prompt", "arg0"), "blockOnGuardrailFailure",
 						true));
 		Map<String, Object> pipeline = Map.of("input", List.of(entry));
-		assertThrows(IllegalArgumentException.class, () -> UpdateModelGuardrailConfigReactor
+		assertThrows(IllegalArgumentException.class, () -> UpdateEngineGuardrailConfigReactor
 				.validateConfigStructure(Map.of("pipelines", Map.of("askRoom", pipeline))));
 	}
 
@@ -115,7 +116,7 @@ class UpdateModelGuardrailConfigReactorTest {
 				"blockOnGuardrailFailure", true, "maskOnGuardrailFailure", true);
 		Map<String, Object> entry = Map.of("reactorClass", INPUT_REACTOR, "params", params);
 		Map<String, Object> pipeline = Map.of("input", List.of(entry));
-		assertThrows(IllegalArgumentException.class, () -> UpdateModelGuardrailConfigReactor
+		assertThrows(IllegalArgumentException.class, () -> UpdateEngineGuardrailConfigReactor
 				.validateConfigStructure(Map.of("pipelines", Map.of("askRoom", pipeline))));
 	}
 
@@ -128,7 +129,7 @@ class UpdateModelGuardrailConfigReactorTest {
 		Map<String, Object> entry = Map.of("reactorClass", "prerna.reactor.interceptor.GenericGuardrailOutputReactor",
 				"params", params);
 		Map<String, Object> pipeline = Map.of("output", List.of(entry));
-		assertThrows(IllegalArgumentException.class, () -> UpdateModelGuardrailConfigReactor
+		assertThrows(IllegalArgumentException.class, () -> UpdateEngineGuardrailConfigReactor
 				.validateConfigStructure(Map.of("pipelines", Map.of("askRoom", pipeline))));
 	}
 
@@ -140,7 +141,7 @@ class UpdateModelGuardrailConfigReactorTest {
 				"blockOnGuardrailFailure", true);
 		Map<String, Object> entry = Map.of("reactorClass", INPUT_REACTOR, "params", params);
 		Map<String, Object> pipeline = Map.of("input", List.of(entry));
-		assertThrows(IllegalArgumentException.class, () -> UpdateModelGuardrailConfigReactor
+		assertThrows(IllegalArgumentException.class, () -> UpdateEngineGuardrailConfigReactor
 				.validateConfigStructure(Map.of("pipelines", Map.of("askRoom", pipeline))));
 	}
 }
