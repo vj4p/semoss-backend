@@ -34,7 +34,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import prerna.auth.User;
-import prerna.auth.utils.AbstractSecurityUtils;
 import prerna.auth.utils.SecurityAdminUtils;
 import prerna.auth.utils.SecurityEngineUtils;
 import prerna.auth.utils.SecurityModelMetadataUtils;
@@ -92,9 +91,6 @@ public class GetModelCostReactor extends AbstractReactor {
 		organizeKeys();
 
 		User user = this.insight.getUser();
-		if (AbstractSecurityUtils.anonymousUsersEnabled() && user.isAnonymous()) {
-			throwAnonymousUserError();
-		}
 		if (!Utility.isModelInferenceLogsEnabled()) {
 			throw new SemossPixelException(
 					"Model inference logging is disabled on this instance, so there are no token counts to price.");
