@@ -35,6 +35,7 @@ import java.util.Map;
 import prerna.auth.User;
 import prerna.auth.utils.SecurityProjectUtils;
 import prerna.reactor.AbstractReactor;
+import prerna.reactor.ReactorDefinition;
 import prerna.reactor.automation.AutomationConstants;
 import prerna.reactor.automation.project.AutomationProjectService;
 import prerna.sablecc2.om.PixelDataType;
@@ -54,7 +55,7 @@ import prerna.sablecc2.om.nounmeta.NounMetadata;
  */
 public class GetAutomationRunReactor extends AbstractReactor {
 
-	// Not standardized in ReactorKeysEnum — matches the local-key convention used
+	// Not standardized in ReactorKeysEnum - matches the local-key convention used
 	// by prerna.reactor.agent (e.g. GetAgentRunReactor.RUN_ID_KEY).
 	private static final String RUN_ID_KEY = "runId";
 
@@ -160,15 +161,9 @@ public class GetAutomationRunReactor extends AbstractReactor {
 	}
 
 	@Override
-	public String getReactorDescription() {
-		return "Returns detail for a single automation run, including per-node results.";
-	}
-
-	@Override
-	protected String getDescriptionForKey(String key) {
-		if (RUN_ID_KEY.equals(key)) {
-			return "Run identifier returned when the automation was triggered.";
-		}
-		return super.getDescriptionForKey(key);
+	public ReactorDefinition getReactorDefinition() {
+		return super.getReactorDefinition()
+				.description("Returns detail for a single automation run, including per-node results.")
+				.key(RUN_ID_KEY, "Run identifier returned when the automation was triggered.");
 	}
 }

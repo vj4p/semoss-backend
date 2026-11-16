@@ -45,6 +45,7 @@ import prerna.ds.OwlTemporalEngineMeta;
 import prerna.engine.api.IDatabaseEngine;
 import prerna.engine.api.IRawSelectWrapper;
 import prerna.query.querystruct.SelectQueryStruct;
+import prerna.reactor.ReactorDefinition;
 import prerna.reactor.frame.r.AbstractRFrameReactor;
 import prerna.sablecc2.om.PixelDataType;
 import prerna.sablecc2.om.PixelOperationType;
@@ -91,7 +92,7 @@ public class VizRecommendationsReactor extends AbstractRFrameReactor {
 		this.rJavaTranslator.checkPackages(packages);
 
 		// convert qs to physical names
-		ITableDataFrame frame = (ITableDataFrame) this.insight.getDataMaker();
+		ITableDataFrame frame = this.insight.getCurrentFrame();
 		if (frame == null) {
 			return new NounMetadata(new HashMap(), PixelDataType.CUSTOM_DATA_STRUCTURE,
 					PixelOperationType.VIZ_RECOMMENDATION);
@@ -236,11 +237,9 @@ public class VizRecommendationsReactor extends AbstractRFrameReactor {
 	}
 
 	@Override
-	protected String getDescriptionForKey(String key) {
-		if (key.equals(MAX_RECOMMENDATIONS)) {
-			return "The maximum amount of visualization recommendations returned.";
-		} else {
-			return super.getDescriptionForKey(key);
-		}
+	public ReactorDefinition getReactorDefinition() {
+		return super.getReactorDefinition().description(
+				"Recommends visualizations for the columns of the insight's frame from the visualization history tracked on the server, and returns each recommended chart type with its weight and the role of each column.")
+				.key(MAX_RECOMMENDATIONS, "The maximum amount of visualization recommendations returned.");
 	}
 }

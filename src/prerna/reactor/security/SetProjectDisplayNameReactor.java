@@ -36,10 +36,12 @@ import prerna.auth.utils.SecurityProjectUtils;
 import prerna.cluster.util.ClusterUtil;
 import prerna.project.api.IProject;
 import prerna.reactor.AbstractReactor;
+import prerna.reactor.ReactorDefinition;
 import prerna.sablecc2.om.PixelDataType;
 import prerna.sablecc2.om.ReactorKeysEnum;
 import prerna.sablecc2.om.nounmeta.NounMetadata;
 import prerna.util.Constants;
+import prerna.util.InternalUtility;
 import prerna.util.UploadInputUtility;
 import prerna.util.Utility;
 
@@ -72,7 +74,7 @@ public class SetProjectDisplayNameReactor extends AbstractReactor {
 		if (project != null) {
 			String smssFilePath = project.getSmssFilePath();
 			try {
-				Utility.changePropertiesFileValue(smssFilePath, Constants.PROJECT_DISPLAY_NAME, displayName);
+				InternalUtility.changePropertiesFileValue(smssFilePath, Constants.PROJECT_DISPLAY_NAME, displayName);
 			} catch (IOException e) {
 				classLogger.error("Error occurred updating the project smss file for display name", e);
 			}
@@ -87,8 +89,8 @@ public class SetProjectDisplayNameReactor extends AbstractReactor {
 	}
 
 	@Override
-	public String getReactorDescription() {
-		return "Set the display name for a project";
+	public ReactorDefinition getReactorDefinition() {
+		return super.getReactorDefinition().description("Set the display name for a project");
 	}
 
 }

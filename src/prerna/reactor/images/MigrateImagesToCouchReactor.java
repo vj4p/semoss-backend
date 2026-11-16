@@ -33,10 +33,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Vector;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FilenameUtils;
@@ -52,6 +52,7 @@ import prerna.engine.api.IEngine;
 import prerna.io.connector.couch.CouchException;
 import prerna.io.connector.couch.CouchUtil;
 import prerna.reactor.AbstractReactor;
+import prerna.reactor.ReactorDefinition;
 import prerna.sablecc2.om.PixelDataType;
 import prerna.sablecc2.om.PixelOperationType;
 import prerna.sablecc2.om.execptions.SemossPixelException;
@@ -81,37 +82,38 @@ public class MigrateImagesToCouchReactor extends AbstractReactor {
 	public MigrateImagesToCouchReactor() throws NoSuchAlgorithmException {
 		md5Instance = MessageDigest.getInstance("MD5");
 
-		this.keysToGet = new String[] { VERIFY_MISSING, REPULL, FILTER_INVALID_IDS};
+		this.keysToGet = new String[] { VERIFY_MISSING, REPULL, FILTER_INVALID_IDS };
 		this.keyRequired = new int[] { 0, 0, 0 };
 	}
 
 	@Override
 	public NounMetadata execute() {
 		loadInputs();
-		
-		List<String> outcomes = new Vector<>();
-		uploadRemoteToCouch(ClusterUtil.IMAGES_FOLDER_PATH + DIR_SEPARATOR + "databases",
+
+		List<String> outcomes = new ArrayList<>();
+		uploadRemoteToCouch(ClusterUtil.getImagesFolderPath() + DIR_SEPARATOR + "databases",
 				SecurityEngineUtils.getAllEngineIds(), CouchUtil.DATABASE, outcomes);
-		uploadRemoteToCouch(ClusterUtil.IMAGES_FOLDER_PATH + DIR_SEPARATOR + "storages",
+		uploadRemoteToCouch(ClusterUtil.getImagesFolderPath() + DIR_SEPARATOR + "storages",
 				SecurityEngineUtils.getAllEngineIds(), CouchUtil.STORAGE, outcomes);
-		uploadRemoteToCouch(ClusterUtil.IMAGES_FOLDER_PATH + DIR_SEPARATOR + "models",
+		uploadRemoteToCouch(ClusterUtil.getImagesFolderPath() + DIR_SEPARATOR + "models",
 				SecurityEngineUtils.getAllEngineIds(), CouchUtil.MODEL, outcomes);
-		uploadRemoteToCouch(ClusterUtil.IMAGES_FOLDER_PATH + DIR_SEPARATOR + "projects",
+		uploadRemoteToCouch(ClusterUtil.getImagesFolderPath() + DIR_SEPARATOR + "projects",
 				SecurityProjectUtils.getAllProjectIds(), CouchUtil.PROJECT, outcomes);
-		
+
 		return new NounMetadata(outcomes, PixelDataType.VECTOR);
 	}
 
 	private void loadInputs() {
 		this.organizeKeys();
-		
+
 		// user must be an admin
 		// and couch must be enabled
-		
+
 		User user = this.insight.getUser();
-		if(!SecurityAdminUtils.userIsAdmin(user)) {
+		if (!SecurityAdminUtils.userIsAdmin(user)) {
 			SemossPixelException err = new SemossPixelException(
-					new NounMetadata("User must be an admin to perform this operation", PixelDataType.CONST_STRING, PixelOperationType.ERROR));
+					new NounMetadata("User must be an admin to perform this operation", PixelDataType.CONST_STRING,
+							PixelOperationType.ERROR));
 			err.setContinueThreadOfExecution(false);
 			throw err;
 		}
@@ -139,11 +141,11 @@ public class MigrateImagesToCouchReactor extends AbstractReactor {
 				throw err;
 			}
 		}
-		
+
 		if (this.keyValue.containsKey(VERIFY_MISSING)) {
 			verifyMissing = Boolean.parseBoolean(this.keyValue.get(VERIFY_MISSING));
 		}
-		
+
 		if (this.keyValue.containsKey(FILTER_INVALID_IDS)) {
 			filterInvalidIds = Boolean.parseBoolean(this.keyValue.get(FILTER_INVALID_IDS));
 		}
@@ -179,7 +181,7 @@ public class MigrateImagesToCouchReactor extends AbstractReactor {
 								+ new String(Base64.encodeBase64(md5Instance.digest(Files.readAllBytes(f.toPath()))));
 						String searchSelector = String.format(SELECTOR_TEMPLATE, partition, identifier, attachmentName,
 								digest);
-						if(CouchUtil.documentExists(partition, searchSelector)) {
+						if (CouchUtil.documentExists(partition, searchSelector)) {
 							outcomes.add(String.format("Image %s already uploaded", fPath));
 							continue;
 						}
@@ -200,22 +202,17 @@ public class MigrateImagesToCouchReactor extends AbstractReactor {
 			}
 		}
 	}
-	
-	@Override
-	protected String getDescriptionForKey(String key) {
-		if (key.equals(VERIFY_MISSING)) {
-			return "Boolean flag indicating if we should check if images are already uploaded to CouchDB (default true)";
-		} else if (key.equals(REPULL)) {
-			return "Boolean flag indicating if we should re-pull image files from the remote repo (default false)";
-		} else if (key.equals(FILTER_INVALID_IDS)) {
-			return "Boolean flag indicating if only images with identifiers matching existing databases and projects should be uploaded (default true)";
-		}
-		return super.getDescriptionForKey(key);
-	}
 
 	@Override
-	public String getReactorDescription() {
-		return "Reactor to migrate images from remote image folders to CouchDB";
+	public ReactorDefinition getReactorDefinition() {
+		return super.getReactorDefinition()
+				.description("Admin Only: Migrates images from remote image folders to CouchDB")
+				.key(VERIFY_MISSING,
+						"Boolean flag indicating if we should check if images are already uploaded to CouchDB (default true)")
+				.key(REPULL,
+						"Boolean flag indicating if we should re-pull image files from the remote repo (default false)")
+				.key(FILTER_INVALID_IDS,
+						"Boolean flag indicating if only images with identifiers matching existing databases and projects should be uploaded (default true)");
 	}
 
 }

@@ -35,6 +35,7 @@ import prerna.ds.py.PyTranslator;
 import prerna.ds.py.PyUtils;
 import prerna.project.api.IProject;
 import prerna.reactor.AbstractReactor;
+import prerna.reactor.ReactorDefinition;
 import prerna.sablecc2.om.PixelDataType;
 import prerna.sablecc2.om.PixelOperationType;
 import prerna.sablecc2.om.ReactorKeysEnum;
@@ -50,19 +51,13 @@ public abstract class AbstractProjectPyReactor extends AbstractReactor {
 
 	@Override
 	public NounMetadata execute() {
-		String disable_terminal = Utility.getDIHelperProperty(Constants.DISABLE_TERMINAL);
-		if (disable_terminal != null && !disable_terminal.isEmpty()) {
-			if (Boolean.parseBoolean(disable_terminal)) {
-				throw new IllegalArgumentException("Terminal and user code execution has been disabled.");
-			}
+		if (Boolean.parseBoolean(Utility.getDIHelperProperty(Constants.DISABLE_TERMINAL))) {
+			throw new IllegalArgumentException("Terminal and user code execution has been disabled.");
 		}
 
 		// check if py terminal is disabled
-		String disable_py_terminal = Utility.getDIHelperProperty(Constants.DISABLE_PY_TERMINAL);
-		if (disable_py_terminal != null && !disable_py_terminal.isEmpty()) {
-			if (Boolean.parseBoolean(disable_py_terminal)) {
-				throw new IllegalArgumentException("Python terminal has been disabled.");
-			}
+		if (Boolean.parseBoolean(Utility.getDIHelperProperty(Constants.DISABLE_PY_TERMINAL))) {
+			throw new IllegalArgumentException("Python terminal has been disabled.");
 		}
 
 		if (!PyUtils.pyEnabled()) {
@@ -91,8 +86,8 @@ public abstract class AbstractProjectPyReactor extends AbstractReactor {
 	}
 
 	@Override
-	public String getReactorDescription() {
-		return "Run Python code in the project's dedicated python process";
+	public ReactorDefinition getReactorDefinition() {
+		return super.getReactorDefinition().description("Run Python code in the project's dedicated python process");
 	}
 
 	/**
