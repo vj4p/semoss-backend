@@ -215,21 +215,88 @@ class PixelReactorHookTest {
 		verify(insight).runPixel(eq("MyReactor(arg='hello');"));
 	}
 
-	// ---------- params untouched (no interpolation today) ----------
+	// ---------- variable interpolation and tool filter (fork: a53cfb6324) ----------
+	// Upstream's original hook deliberately did no interpolation and pinned that with a test. The fork
+	// reversed it on purpose, so these tests pin the new contract, including the escaping that makes it
+	// safe: tool names and ids come from the model and MCP metadata.
 
 	@Test
-	void doesNotInterpolateToolParamsIntoPixel() {
+	void interpolatesToolNameIntoPixel() {
 		JSONObject spec = new JSONObject();
 		spec.put("pixel", "Echo(name='${toolName}');");
 		hook.configure(spec);
 
-		Map<String, Object> params = new HashMap<>();
-		params.put("foo", "bar");
+		hook.beforeTool(ctx, "Bash", "c", new HashMap<>(), 0);
 
-		hook.beforeTool(ctx, "Bash", "c", params, 0);
+		verify(insight).runPixel(eq("Echo(name='Bash');"));
+	}
 
-		// Pixel is fired as-is — interpolation is explicitly out of scope.
-		verify(insight).runPixel(eq("Echo(name='${toolName}');"));
+	@Test
+	void interpolatesEventRoomCallAndIterationTokens() {
+		JSONObject spec = new JSONObject();
+		spec.put("pixel", "Echo(room=[\"${roomId}\"], event=[\"${event}\"], call=[\"${toolCallId}\"], n=[\"${iteration}\"]);");
+		hook.configure(spec);
+
+		hook.beforeTool(ctx, "Bash", "call-9", new HashMap<>(), 2);
+
+		verify(insight).runPixel(eq("Echo(room=[\"room-123\"], event=[\"" + PixelReactorHook.EVT_BEFORE_TOOL
+				+ "\"], call=[\"call-9\"], n=[\"2\"]);"));
+	}
+
+	@Test
+	void escapesQuotesAndBackslashesSoAToolNameCannotCloseTheString() {
+		JSONObject spec = new JSONObject();
+		spec.put("pixel", "Echo(name=[\"${toolName}\"]);");
+		hook.configure(spec);
+
+		// a hostile name: closes the string, then tries to append its own reactor call
+		hook.beforeTool(ctx, "x\"]); Evil(); Echo([\"y\\z", "c", new HashMap<>(), 0);
+
+		verify(insight).runPixel(eq("Echo(name=[\"x\\\"]); Evil(); Echo([\\\"y\\\\z\"]);"));
+	}
+
+	@Test
+	void stripsNewlinesFromInterpolatedValues() {
+		JSONObject spec = new JSONObject();
+		spec.put("pixel", "Echo(name=[\"${toolName}\"]);");
+		hook.configure(spec);
+
+		hook.beforeTool(ctx, "x\ny\r\nz", "c", new HashMap<>(), 0);
+
+		// a literal newline would end the statement whatever the quoting
+		verify(insight).runPixel(eq("Echo(name=[\"x y  z\"]);"));
+	}
+
+	@Test
+	void leavesTokensTheEventDoesNotCarryInPlace() {
+		JSONObject spec = new JSONObject();
+		spec.put("pixel", "Echo(ms=[\"${durationMs}\"]);");
+		hook.configure(spec);
+
+		// durationMs exists only on afterTool; a typo must show up as a token, not as an empty argument
+		hook.beforeTool(ctx, "Bash", "c", new HashMap<>(), 0);
+
+		verify(insight).runPixel(eq("Echo(ms=[\"${durationMs}\"]);"));
+	}
+
+	@Test
+	void toolsFilterNarrowsBothToolEventsAndLeavesRunEventsAlone() {
+		JSONObject spec = new JSONObject();
+		spec.put("pixel", "Date();");
+		spec.put("tools", new JSONArray().put("write_file"));
+		hook.configure(spec);
+
+		hook.beforeTool(ctx, "Bash", "c1", new HashMap<>(), 0);
+		hook.afterTool(ctx, "Bash", "c1", new HashMap<>(), "r", 1L, true, 0);
+		verify(insight, never()).runPixel(org.mockito.ArgumentMatchers.anyString());
+
+		hook.beforeTool(ctx, "write_file", "c2", new HashMap<>(), 0);
+		hook.afterTool(ctx, "write_file", "c2", new HashMap<>(), "r", 1L, true, 0);
+		verify(insight, org.mockito.Mockito.times(2)).runPixel(eq("Date();"));
+
+		// the filter has no effect on run-level events, which carry no tool
+		hook.beforeRun(ctx);
+		verify(insight, org.mockito.Mockito.times(3)).runPixel(eq("Date();"));
 	}
 
 	@Test

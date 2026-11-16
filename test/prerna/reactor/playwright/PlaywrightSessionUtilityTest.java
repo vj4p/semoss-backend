@@ -32,6 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mockStatic;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -42,6 +44,7 @@ import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
@@ -49,6 +52,7 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 
 import prerna.SemossUnitTest;
+import prerna.remoteviewer.security.RemoteBrowserUrlSafetyValidator;
 
 class PlaywrightSessionUtilityTest extends SemossUnitTest {
 
@@ -142,11 +146,34 @@ class PlaywrightSessionUtilityTest extends SemossUnitTest {
 				"file://" + htmlFile.toAbsolutePath().toString(), selector, null, null, null,
 				false, false, null, null, null, null);
 
-		Map<String, Object> result = PlaywrightSessionUtility.applyStep(session, step, "tab-1");
+		// The fork's SSRF guard (d081c497bd) only lets http and https through, and a local test page is
+		// neither, so stub the guard here: this test is about navigation working, not about the guard.
+		Map<String, Object> result;
+		try (MockedStatic<RemoteBrowserUrlSafetyValidator> guard = mockStatic(RemoteBrowserUrlSafetyValidator.class)) {
+			guard.when(() -> RemoteBrowserUrlSafetyValidator.validate(anyString())).thenAnswer(inv -> null);
+			result = PlaywrightSessionUtility.applyStep(session, step, "tab-1");
+		}
 
 		assertNotNull(result);
 		assertTrue(page.url().contains("test.html"));
 		assertEquals("Test Page", result.get("tabTitle"));
+	}
+
+	@Test
+	void applyStepRefusesANavigateToAFileUrl() {
+		Selector selector = new Selector("css", "body", null);
+		PlaywrightStep step = createStep(1, PlaywrightStepType.NAVIGATE,
+				"file://" + htmlFile.toAbsolutePath().toString(), selector, null, null, null,
+				false, false, null, null, null, null);
+
+		// the guard is the point: a caller-supplied URL fetched by a server-side browser must not reach
+		// local files (or cloud metadata, or the internal network), whatever the step says. applyStep
+		// reports the refusal in the result instead of throwing, so one bad step cannot crash a run.
+		Map<String, Object> result = PlaywrightSessionUtility.applyStep(session, step, "tab-1");
+
+		assertNotNull(result);
+		assertTrue(String.valueOf(result.get("error")).contains("scheme"), "expected a scheme refusal, got: " + result);
+		assertFalse(page.url().contains("test.html"));
 	}
 
 	@Test
